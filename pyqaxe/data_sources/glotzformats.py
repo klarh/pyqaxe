@@ -35,7 +35,8 @@ class GlotzFormats:
         gsd=glotzformats.reader.GSDHOOMDFileReader
         )
 
-    known_frame_attributes = ['positions', 'orientations', 'box']
+    known_frame_attributes = ['box', 'types', 'positions', 'velocities',
+                              'orientations', 'shapedef']
 
     def __init__(self):
         pass
@@ -43,14 +44,16 @@ class GlotzFormats:
     def index(self, cache, conn, data_source=None, force=False):
         self.check_adapters()
 
-        conn.execute('CREATE TABLE IF NOT EXISTS glotzformats_frames '
-                     '(file_id INTEGER, cache_id TEXT, '
-                     'frame INTEGER, '
-                     'positions GLOTZFORMATS_POSITIONS, '
-                     'orientations GLOTZFORMATS_ORIENTATIONS, '
-                     'box GLOTZFORMATS_BOX, '
-                     'CONSTRAINT unique_glotzformats_path '
-                     'UNIQUE (file_id, cache_id, frame) ON CONFLICT IGNORE)')
+        all_attributes = ', '.join(
+            ['{} GLOTZFORMATS_{}'.format(attr, attr)
+             for attr in self.known_frame_attributes])
+        query = ('CREATE TABLE IF NOT EXISTS glotzformats_frames '
+                 '(file_id INTEGER, cache_id TEXT, '
+                 'frame INTEGER, {attributes}, '
+                 'CONSTRAINT unique_glotzformats_path '
+                 'UNIQUE (file_id, cache_id, frame) ON CONFLICT IGNORE)').format(
+                     attributes=all_attributes)
+        conn.execute(query)
 
         # don't do file IO if we aren't forced
         if not force:
@@ -78,9 +81,10 @@ class GlotzFormats:
                         values.append(encode_glotzformats_data(file_id, cache.unique_id, frame, attr))
                     all_values.append(values)
 
+        query = 'INSERT INTO glotzformats_frames VALUES ({})'.format(
+            ', '.join((len(self.known_frame_attributes) + 3)*'?'))
         for values in all_values:
-            conn.execute('INSERT INTO glotzformats_frames VALUES '
-                         '(?, ?, ?, ?, ?, ?)', values)
+            conn.execute(query, values)
 
     @classmethod
     def check_adapters(cls):
