@@ -24,7 +24,7 @@ class Directory:
         if not force:
             return
 
-        for (dirpath, dirnames, fnames) in os.walk(self.root):
+        for (dirpath, dirnames, fnames) in os.walk(self.root, followlinks=True):
             # for dirname in dirnames:
             #     target_path = os.path.join(dirpath, dirname, '')
             #     cache.insert_file(conn, data_source, target_path)
