@@ -35,6 +35,9 @@ class GTAR:
         if not force:
             return
 
+        # all rows to insert into glotzformats_frames (TODO interleave
+        # reading and writing if size of all_values becomes an issue)
+        all_values = []
         for row in conn.execute(
                 'SELECT rowid, * from files WHERE path LIKE "%.zip" OR '
                 'path LIKE "%.tar" OR path LIKE "%.sqlite"'):
@@ -54,10 +57,11 @@ class GTAR:
                                 path, file_id, cache.unique_id)
                             values = (path, group, frame, name, file_id,
                                       cache.unique_id, encoded_data)
-                            conn.execute(
-                                'INSERT INTO gtar_records VALUES (?, ?, ?, ?, ?, ?, ?)',
-                                values)
-        pass
+                            all_values.append(values)
+
+        for values in all_values:
+            conn.execute(
+                'INSERT INTO gtar_records VALUES (?, ?, ?, ?, ?, ?, ?)', values)
 
     @classmethod
     def check_adapters(cls):
