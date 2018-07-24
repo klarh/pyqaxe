@@ -1,7 +1,18 @@
 import gtar
 import json
 import sqlite3
-from .. import Cache
+from .. import Cache, util
+
+def open_gtar(cache_id, file_row):
+    cache = Cache.get_opened_cache(cache_id)
+    opened_file = cache.open_file(file_row, 'rb')
+    gtar_traj = gtar.GTAR(opened_file.name, 'r')
+    return (opened_file, gtar_traj)
+
+def close_gtar(args):
+    (opened_file, gtar_traj) = args
+    gtar_traj.close()
+    opened_file.close()
 
 def encode_gtar_data(path, file_id, cache_id):
     return json.dumps([path, file_id, cache_id]).encode('UTF-8')
@@ -13,12 +24,12 @@ def convert_gtar_data(contents):
         # set row for open_file below
         pass
 
-    # TODO use a cache to save on re-opening files each time
-    with cache.open_file(row, 'rb') as f:
-        with gtar.GTAR(f.name, 'r') as traj:
-            return traj.readPath(path)
+    (_, traj) = GTAR.opened_trajectories_(cache_id, row)
+    return traj.readPath(path)
 
 class GTAR:
+    opened_trajectories_ = util.LRU_Cache(open_gtar, close_gtar, 16)
+
     def __init__(self):
         pass
 
@@ -43,21 +54,20 @@ class GTAR:
                 'path LIKE "%.tar" OR path LIKE "%.sqlite"'):
             file_id = row[0]
             row = row[1:]
-            # TODO use a cache to save on re-opening files each time
-            with cache.open_file(row, 'rb') as f:
-                with gtar.GTAR(f.name, 'r') as traj:
-                    for record in traj.getRecordTypes():
-                        group = record.getGroup()
-                        name = record.getName()
-                        for frame in traj.queryFrames(record):
-                            record.setIndex(frame)
-                            path = record.getPath()
 
-                            encoded_data = encode_gtar_data(
-                                path, file_id, cache.unique_id)
-                            values = (path, group, frame, name, file_id,
-                                      cache.unique_id, encoded_data)
-                            all_values.append(values)
+            (_, traj) = GTAR.opened_trajectories_(cache.unique_id, row)
+            for record in traj.getRecordTypes():
+                group = record.getGroup()
+                name = record.getName()
+                for frame in traj.queryFrames(record):
+                    record.setIndex(frame)
+                    path = record.getPath()
+
+                    encoded_data = encode_gtar_data(
+                        path, file_id, cache.unique_id)
+                    values = (path, group, frame, name, file_id,
+                              cache.unique_id, encoded_data)
+                    all_values.append(values)
 
         for values in all_values:
             conn.execute(

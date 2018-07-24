@@ -1,7 +1,18 @@
 import glotzformats
 import json
 import sqlite3
-from .. import Cache
+from .. import Cache, util
+
+def open_glotzformats(cache_id, file_row, suffix):
+    open_mode = 'rb' if suffix in GlotzFormats.binary_formats else 'r'
+    cache = Cache.get_opened_cache(cache_id)
+    opened_file = cache.open_file(file_row, open_mode)
+    trajectory = GlotzFormats.readers[suffix]().read(opened_file)
+    return (opened_file, trajectory)
+
+def close_glotzformats(args):
+    (opened_file, _) = args
+    opened_file.close()
 
 def encode_glotzformats_data(file_id, cache_id, frame, attribute):
     return json.dumps([file_id, cache_id, frame, attribute]).encode('UTF-8')
@@ -14,16 +25,12 @@ def convert_glotzformats_data(contents):
         pass
 
     suffix = row[0].split('.')[-1]
-    open_mode = 'rb' if suffix in GlotzFormats.binary_formats else 'r'
 
-    # TODO use a cache to save on re-opening files each time
-    with cache.open_file(row, open_mode) as f:
-        trajectory = GlotzFormats.readers[suffix]().read(f)
-        return getattr(trajectory[frame], attribute)
+    (_, trajectory) = GlotzFormats.opened_trajectories_(cache_id, row, suffix)
+    return getattr(trajectory[frame], attribute)
 
 class GlotzFormats:
-    # number of records to select at once
-    select_limit = 128
+    opened_trajectories_ = util.LRU_Cache(open_glotzformats, close_glotzformats, 16)
 
     binary_formats = {'zip', 'tar', 'sqlite', 'gsd'}
 
@@ -70,16 +77,12 @@ class GlotzFormats:
             suffix = row[1].split('.')[-1]
             row = row[1:]
 
-            open_mode = 'rb' if suffix in self.binary_formats else 'r'
-
-            # TODO use a cache to save on re-opening files each time
-            with cache.open_file(row, open_mode) as f:
-                trajectory = self.readers[suffix]().read(f)
-                for frame in range(len(trajectory)):
-                    values = [file_id, cache.unique_id, frame]
-                    for attr in self.known_frame_attributes:
-                        values.append(encode_glotzformats_data(file_id, cache.unique_id, frame, attr))
-                    all_values.append(values)
+            (_, trajectory) = GlotzFormats.opened_trajectories_(cache.unique_id, row, suffix)
+            for frame in range(len(trajectory)):
+                values = [file_id, cache.unique_id, frame]
+                for attr in self.known_frame_attributes:
+                    values.append(encode_glotzformats_data(file_id, cache.unique_id, frame, attr))
+                all_values.append(values)
 
         query = 'INSERT INTO glotzformats_frames VALUES ({})'.format(
             ', '.join((len(self.known_frame_attributes) + 3)*'?'))
