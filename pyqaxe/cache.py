@@ -28,6 +28,7 @@ class Cache:
                 'CREATE TABLE IF NOT EXISTS data_sources '
                 '(pickle BLOB UNIQUE ON CONFLICT IGNORE, update_time DATETIME)')
 
+            # TODO add modify time of each file?
             conn.execute(
                 'CREATE TABLE IF NOT EXISTS files '
                 '(path TEXT, data_source INTEGER, '
@@ -39,6 +40,11 @@ class Cache:
                     'SELECT rowid, pickle from data_sources'):
                 data_source = self.data_sources[rowid] = pickle.loads(pickle_data)
                 data_source.index(self, conn, rowid, force=False)
+
+    def get_table_descriptions(self):
+        # get documentation for pyqaxe-created tables currently in the
+        # database
+        raise NotImplementedError('Not yet implemented!')
 
     @classmethod
     def get_opened_cache(cls, unique_id):

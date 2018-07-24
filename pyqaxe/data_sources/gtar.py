@@ -13,6 +13,7 @@ def convert_gtar_data(contents):
         # set row for open_file below
         pass
 
+    # TODO use a cache to save on re-opening files each time
     with cache.open_file(row, 'rb') as f:
         with gtar.GTAR(f.name, 'r') as traj:
             return traj.readPath(path)
@@ -39,6 +40,7 @@ class GTAR:
                 'path LIKE "%.tar" OR path LIKE "%.sqlite"'):
             file_id = row[0]
             row = row[1:]
+            # TODO use a cache to save on re-opening files each time
             with cache.open_file(row, 'rb') as f:
                 with gtar.GTAR(f.name, 'r') as traj:
                     for record in traj.getRecordTypes():
