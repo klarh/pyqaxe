@@ -22,7 +22,7 @@ class LRU_Cache:
             self.tick_params_[self.ticks_] = params
             self.last_param_ticks_[params] = self.ticks_
 
-        if len(self.results_) > self.max_size:
+        while len(self.results_) > self.max_size:
             oldest_tick = min(self.tick_params_)
             oldest_params = self.tick_params_[oldest_tick]
             self.last_param_ticks_.pop(oldest_params)
