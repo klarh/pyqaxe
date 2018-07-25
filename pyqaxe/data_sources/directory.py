@@ -7,6 +7,9 @@ class Directory:
     `Directory` populates the files table by recursively searching all
     subdirectories of a given root directory.
 
+    :param root: Base directory to begin searching
+    :param exclude_suffixes: Iterable of suffixes that should be excluded from addition to the list of files (i.e. ['txt', 'xml'])
+
     """
     def __init__(self, root=os.curdir, exclude_suffixes=()):
         self.root = root
