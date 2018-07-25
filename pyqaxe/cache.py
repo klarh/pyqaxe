@@ -50,7 +50,7 @@ class Cache:
         if location == ':memory:':
             while unique_location in self.opened_caches_:
                 match = re.search(r'(\d+)$', unique_location)
-                index = 1 if match is none else int(match.groups()[0])
+                index = 1 if match is None else int(match.groups()[0])
                 unique_location = ':memory:{}'.format(index + 1)
         self.unique_id = hashlib.sha256(unique_location.encode('UTF-8')).hexdigest()
         self.opened_caches_[self.unique_id] = self
