@@ -117,3 +117,13 @@ class GTAR:
 
     def __setstate__(self, state):
         self.__init__(*state)
+
+    @classmethod
+    def get_cache_size(cls):
+        """Return the maximumnumber of files to keep open."""
+        return cls.opened_trajectories_.max_size
+
+    @classmethod
+    def set_cache_size(cls, value):
+        """Set the maximum number of files to keep open."""
+        cls.opened_trajectories_.max_size = value
