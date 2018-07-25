@@ -16,28 +16,28 @@ class Cache:
     in-memory database or a filename to create persistent storage of
     the cached contents.
 
-    The database is populated by *indexing* data sources, which may
-    expose files for other data sources to work with or create
+    The database is populated by indexing data sources, or *mines*,
+    which may expose files for other mines to work with or create
     additional tables and associated conversion functions.
 
-    Caches and their data sources can be reconsituted in a separate
-    process by simply opening a new `Cache` object pointing to the
-    same file location.
+    Caches and their mines can be reconsituted in a separate process
+    by simply opening a new `Cache` object pointing to the same file
+    location.
 
     Cache objects create the following tables in the database:
 
-    - data_sources: The data sources that have been indexed by this object
-    - files: The files (or file-like objects) that have been exposed by other data sources
+    - mines: The data sources that have been indexed by this object
+    - files: The files (or file-like objects) that have been exposed by indexed mines
 
-    The **data_sources** table has the following columns:
+    The **mines** table has the following columns:
 
-    - pickle: A pickled representation of the data source
-    - update_time: The last time the data source was indexed
+    - pickle: A pickled representation of the mine
+    - update_time: The last time the mine was indexed
 
     The **files** table has the following columns:
 
     - path: The path of the file being referenced
-    - data_source: Integer ID of the data source that provides the file
+    - mine_id: Integer ID of the mine that provides the file
 
     """
     opened_caches_ = weakref.WeakValueDictionary()
@@ -57,21 +57,21 @@ class Cache:
 
         with self.connection_ as conn:
             conn.execute(
-                'CREATE TABLE IF NOT EXISTS data_sources '
+                'CREATE TABLE IF NOT EXISTS mines '
                 '(pickle BLOB UNIQUE ON CONFLICT IGNORE, update_time DATETIME)')
 
             # TODO add modify time of each file?
             conn.execute(
                 'CREATE TABLE IF NOT EXISTS files '
-                '(path TEXT, data_source INTEGER, '
+                '(path TEXT, mine_id INTEGER, '
                 'CONSTRAINT unique_path '
-                'UNIQUE (path, data_source) ON CONFLICT IGNORE)')
+                'UNIQUE (path, mine_id) ON CONFLICT IGNORE)')
 
-            self.data_sources = {}
+            self.mines = {}
             for (rowid, pickle_data) in conn.execute(
-                    'SELECT rowid, pickle from data_sources'):
-                data_source = self.data_sources[rowid] = pickle.loads(pickle_data)
-                data_source.index(self, conn, rowid, force=False)
+                    'SELECT rowid, pickle from mines'):
+                mine = self.mines[rowid] = pickle.loads(pickle_data)
+                mine.index(self, conn, rowid, force=False)
 
     @classmethod
     def get_opened_cache(cls, unique_id):
@@ -85,36 +85,36 @@ class Cache:
         """
         return cls.opened_caches_[unique_id]
 
-    def index(self, data_source, force=False):
-        """Index a new data source.
+    def index(self, mine, force=False):
+        """Index a new mine.
 
-        Data sources may add entries to the table of files or create
-        additional tables. If a data source is new to this database,
-        it will be indexed regardless of the `force` argument.
+        Mines may add entries to the table of files or create
+        additional tables. If a mine is new to this database, it will
+        be indexed regardless of the `force` argument.
 
-        :param data_source: Data source to index
-        :param force: If True, force the data source to index its contents (usually implies some IO operations)
+        :param mine: Mine to index
+        :param force: If True, force the mine to index its contents (usually implies some IO operations)
 
         """
         with self.connection_ as conn:
             cursor = conn.cursor()
-            pickle_data = pickle.dumps(data_source)
+            pickle_data = pickle.dumps(mine)
 
-            cursor.execute('INSERT INTO data_sources (pickle) VALUES (?)',
+            cursor.execute('INSERT INTO mines (pickle) VALUES (?)',
                          (pickle_data,))
 
-            cursor.execute('SELECT rowid, update_time FROM data_sources WHERE pickle = ?',
+            cursor.execute('SELECT rowid, update_time FROM mines WHERE pickle = ?',
                          (pickle_data,))
             (rowid, stored_update_time) = cursor.fetchone()
 
             if force or stored_update_time is None:
                 begin_time = datetime.datetime.now()
                 # force the first index if this source hasn't been indexed before
-                data_source.index(self, cursor, rowid, force=True)
-                cursor.execute('UPDATE data_sources SET update_time = ? WHERE rowid = ?',
+                mine.index(self, cursor, rowid, force=True)
+                cursor.execute('UPDATE mines SET update_time = ? WHERE rowid = ?',
                              (begin_time, rowid))
 
-            self.data_sources[rowid] = data_source
+            self.mines[rowid] = mine
 
     def query(self, *args, **kwargs):
         """Run a query on the database.
@@ -129,20 +129,20 @@ class Cache:
         """Close the connection to the database."""
         self.connection_.close()
 
-    def insert_file(self, conn, data_source, path):
+    def insert_file(self, conn, mine_id, path):
         """Insert a new entry into the files table."""
         return conn.execute(
             'INSERT INTO files VALUES (?, ?)',
-            (path, data_source))
+            (path, mine_id))
 
     def open_file(self, row, mode='r'):
         """Open an entry from the files table.
 
         Pass this function an entire row from the files table, just as
         it is (i.e. `select * from files where ...`). Dispatches its
-        work to the data source that owns the file. Returns a
-        file-like object.
+        work to the mine that owns the file. Returns a file-like
+        object.
 
         """
-        (path, data_source) = row
-        return self.data_sources[data_source].open(path, mode)
+        (path, mine_id) = row
+        return self.mines[mine_id].open(path, mode)

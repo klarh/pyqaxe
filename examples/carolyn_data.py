@@ -1,9 +1,9 @@
 import pyqaxe as pyq
-from pyqaxe.data_sources.glotzformats import GlotzFormats
+from pyqaxe.mines.glotzformats import GlotzFormats
 
 c = pyq.Cache('/tmp/carolyn_cache.sqlite')
 
-c.index(pyq.data_sources.Directory(
+c.index(pyq.mines.Directory(
     '/nfs/glotzer/projects/potential-zoo/carolynDataFromDropbox/ModMarek/raw/pos_data'))
 c.index(GlotzFormats())
 

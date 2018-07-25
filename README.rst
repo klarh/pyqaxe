@@ -10,8 +10,8 @@ tables and adapters using python's `sqlite3` module.
 ::
 
    cache = pyqaxe.Cache()
-   cache.index(pyqaxe.data_sources.Directory())
-   cache.index(pyqaxe.data_sources.GTAR())
+   cache.index(pyqaxe.mines.Directory())
+   cache.index(pyqaxe.mines.GTAR())
 
    for (positions,) in cache.query(
        'select data from gtar_records where name = "position"'):

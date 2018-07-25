@@ -60,7 +60,7 @@ class GTAR:
     def __init__(self):
         pass
 
-    def index(self, cache, conn, data_source=None, force=False):
+    def index(self, cache, conn, mine_id=None, force=False):
         self.check_adapters()
 
         conn.execute('CREATE TABLE IF NOT EXISTS gtar_records '

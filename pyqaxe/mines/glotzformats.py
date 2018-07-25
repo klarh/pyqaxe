@@ -76,7 +76,7 @@ class GlotzFormats:
     def __init__(self):
         pass
 
-    def index(self, cache, conn, data_source=None, force=False):
+    def index(self, cache, conn, mine_id=None, force=False):
         self.check_adapters()
 
         all_attributes = ', '.join(
@@ -98,7 +98,7 @@ class GlotzFormats:
         # reading and writing if size of all_values becomes an issue)
         all_values = []
         for row in conn.execute(
-                'SELECT rowid, path, data_source from files WHERE path LIKE "%.zip" OR '
+                'SELECT rowid, path, mine_id from files WHERE path LIKE "%.zip" OR '
                 'path LIKE "%.tar" OR path LIKE "%.sqlite" OR '
                 'path LIKE "%.pos" OR path LIKE "%.gsd"'):
             file_id = row[0]
