@@ -146,3 +146,13 @@ class Cache:
         """
         (path, mine_id) = row
         return self.mines[mine_id].open(path, mode)
+
+    @property
+    def named_mines(self):
+        """A dictionary mapping active mine type names to objects."""
+        return {type(mine).__name__: mine for mine in self.mines.values()}
+
+    @property
+    def ordered_mines(self):
+        """A list of each active mine, in order of indexing."""
+        return [self.mines[key] for key in sorted(self.mines)]
