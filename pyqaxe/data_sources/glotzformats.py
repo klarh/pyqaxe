@@ -30,6 +30,34 @@ def convert_glotzformats_data(contents):
     return getattr(trajectory[frame], attribute)
 
 class GlotzFormats:
+    """Expose frames of glotzformats-readable trajectory formats.
+
+    `GlotzFormats` parses trajectory files and exposes them with a
+    common interface. Files are opened once upon indexing to query the
+    number of frames and data are read on-demand as frame data are
+    selected.
+
+    GlotzFormats objects create the following table in the database:
+
+    - glotzformats_frames: Contains entries for each frame found in all trajectory files
+
+    The **glotzformats_frames** table has the following columns:
+
+    - file_id: files table identifier for the archive containing this record
+    - cache_id: `Cache` unique identifier for the archive containing this record
+    - frame: Integer (0-based) corresponding to the frame index within the trajectory
+    - box: Glotzformats box object for the frame
+    - types: Glotzformats types object for the frame
+    - positions: Glotzformats positions object for the frame
+    - velocities: Glotzformats velocities object for the frame
+    - orientations: Glotzformats orientations object for the frame
+    - shapedef: Glotzformats shapedef object for the frame
+
+    .. note::
+        Consult the glotzformats documentation to find more details
+        about the encoding of the various data types listed here.
+
+    """
     opened_trajectories_ = util.LRU_Cache(open_glotzformats, close_glotzformats, 16)
 
     binary_formats = {'zip', 'tar', 'sqlite', 'gsd'}

@@ -2,6 +2,12 @@ import os
 from .. import Cache
 
 class Directory:
+    """A simple recursive directory browser.
+
+    `Directory` populates the files table by recursively searching all
+    subdirectories of a given root directory.
+
+    """
     def __init__(self, root=os.curdir, exclude_suffixes=()):
         self.root = root
         self.exclude_suffixes = set(exclude_suffixes)
@@ -34,7 +40,7 @@ class Directory:
                     cache.insert_file(conn, data_source, target_path)
 
     def __getstate__(self):
-        return [self.root, self.exclude_suffixes]
+        return [self.root, list(sorted(self.exclude_suffixes))]
 
     def __setstate__(self, state):
         self.__init__(*state)

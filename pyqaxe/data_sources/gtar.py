@@ -28,6 +28,33 @@ def convert_gtar_data(contents):
     return traj.readPath(path)
 
 class GTAR:
+    """Interpret getar-format files.
+
+    `GTAR` parses zip, tar, and sqlite-format archives in the getar
+    format (https://libgetar.readthedocs.io) to expose trajectory
+    data. The getar files themselves are opened upon indexing to find
+    which records are available in each file, but the actual data
+    contents are read on-demand.
+
+    GTAR objects create the following table in the database:
+
+    - gtar_records: Contains links to data found in all getar-format files
+
+    The **gtar_records** table has the following columns:
+
+    - path: path within the archive of the record
+    - gtar_group: *group* for the record
+    - gtar_index: *index* for the record
+    - name: *name* for the record
+    - file_id: files table identifier for the archive containing this record
+    - cache_id: `Cache` unique identifier for the archive containing this record
+    - data: exposes the data of the record. Value is a string, bytes, or array-like object depending on the stored format.
+
+    .. note::
+        Consult the libgetar documentation to find more details about
+        how records are encoded.
+
+    """
     opened_trajectories_ = util.LRU_Cache(open_gtar, close_gtar, 16)
 
     def __init__(self):
