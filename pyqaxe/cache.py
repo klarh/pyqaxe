@@ -95,22 +95,23 @@ class Cache:
 
         """
         with self.connection_ as conn:
-            cursor = conn.cursor()
             pickle_data = pickle.dumps(mine)
 
-            cursor.execute('INSERT INTO mines (pickle) VALUES (?)',
-                           (pickle_data,))
+            conn.execute('INSERT INTO mines (pickle) VALUES (?)',
+                         (pickle_data,))
 
-            cursor.execute('SELECT rowid, update_time FROM mines WHERE pickle = ?',
-                           (pickle_data,))
-            (rowid, stored_update_time) = cursor.fetchone()
+            for (rowid, stored_update_time) in conn.execute(
+                    'SELECT rowid, update_time FROM mines WHERE pickle = ?',
+                    (pickle_data,)):
+                # only one value
+                pass
 
             if force or stored_update_time is None:
                 begin_time = datetime.datetime.now()
                 # force the first index if this source hasn't been indexed before
-                mine.index(self, cursor, rowid, force=True)
-                cursor.execute('UPDATE mines SET update_time = ? WHERE rowid = ?',
-                               (begin_time, rowid))
+                mine.index(self, conn, rowid, force=True)
+                conn.execute('UPDATE mines SET update_time = ? WHERE rowid = ?',
+                             (begin_time, rowid))
 
             self.mines[rowid] = mine
 

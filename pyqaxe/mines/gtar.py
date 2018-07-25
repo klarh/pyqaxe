@@ -27,6 +27,16 @@ def convert_gtar_data(contents):
     (_, traj) = GTAR.opened_trajectories_(cache_id, row)
     return traj.readPath(path)
 
+def collate_gtar_index(left, right):
+    left = (len(left), left)
+    right = (len(right), right)
+
+    if left < right:
+        return -1
+    elif left == right:
+        return 0
+    return 1
+
 class GTAR:
     """Interpret getar-format files.
 
@@ -39,6 +49,7 @@ class GTAR:
     GTAR objects create the following table in the database:
 
     - gtar_records: Contains links to data found in all getar-format files
+    - gtar_frames: Contains sets of data stored with identical indices for each index of all getar-format files
 
     The **gtar_records** table has the following columns:
 
@@ -49,6 +60,17 @@ class GTAR:
     - file_id: files table identifier for the archive containing this record
     - cache_id: `Cache` unique identifier for the archive containing this record
     - data: exposes the data of the record. Value is a string, bytes, or array-like object depending on the stored format.
+
+    The **gtar_frames** table's columns depend on which records are
+    found among the indexed files. For each unique index, it lists all
+    quantities found among all archives as columns (note that some
+    quantities may need to be selected with quotes, for example
+    `select "params.json" from gtar_frames`. It contains the following
+    additional columns:
+
+    - gtar_index: *index* for the record
+    - file_id: files table identifier for the archive containing this record
+    - cache_id: `Cache` unique identifier for the archive containing this record
 
     .. note::
         Consult the libgetar documentation to find more details about
@@ -62,6 +84,8 @@ class GTAR:
 
     def index(self, cache, conn, mine_id=None, force=False):
         self.check_adapters()
+
+        conn.create_collation('gtar_frame', collate_gtar_index)
 
         conn.execute('CREATE TABLE IF NOT EXISTS gtar_records '
                      '(path TEXT, gtar_group TEXT, gtar_index TEXT, name TEXT, '
@@ -99,6 +123,24 @@ class GTAR:
         for values in all_values:
             conn.execute(
                 'INSERT INTO gtar_records VALUES (?, ?, ?, ?, ?, ?, ?)', values)
+
+        conn.execute('DROP VIEW IF EXISTS gtar_frames')
+
+        all_names = {row[0] for row in conn.execute(
+            'SELECT DISTINCT name FROM gtar_records')}
+        column_queries = ['{name} as {name}'.format(name=name) for name in
+                          ['cache_id', 'file_id', 'gtar_group', 'gtar_index']]
+        column_queries.extend([
+            'max(case when name = "{name}" then data end) as "{name}"'.format(name=name)
+            for name in sorted(all_names)
+        ])
+
+        query = ('CREATE VIEW gtar_frames AS SELECT {} FROM gtar_records '
+                 'GROUP BY cache_id, file_id, gtar_group, gtar_index '
+                 'ORDER BY cache_id, file_id, gtar_group, '
+                 'gtar_index COLLATE gtar_frame').format(
+                     ', '.join(column_queries))
+        conn.execute(query)
 
     @classmethod
     def check_adapters(cls):
