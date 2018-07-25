@@ -11,7 +11,7 @@ class LRU_Cache:
         self.tick_params_ = {}
 
     def __call__(self, *args, **kwargs):
-        params = (args, tuple((k, kwargs[v]) for k in sorted(kwargs)))
+        params = (args, tuple((k, kwargs[k]) for k in sorted(kwargs)))
 
         if params not in self.results_:
             self.results_[params] = self.generator(*args, **kwargs)

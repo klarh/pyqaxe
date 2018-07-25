@@ -1,11 +1,9 @@
-from collections import namedtuple
 import datetime
-import pickle
-import sqlite3
-import json
-import re
-import weakref
 import hashlib
+import pickle
+import re
+import sqlite3
+import weakref
 
 class Cache:
     """A queryable cache of data found in one or more datasets
@@ -101,10 +99,10 @@ class Cache:
             pickle_data = pickle.dumps(mine)
 
             cursor.execute('INSERT INTO mines (pickle) VALUES (?)',
-                         (pickle_data,))
+                           (pickle_data,))
 
             cursor.execute('SELECT rowid, update_time FROM mines WHERE pickle = ?',
-                         (pickle_data,))
+                           (pickle_data,))
             (rowid, stored_update_time) = cursor.fetchone()
 
             if force or stored_update_time is None:
@@ -112,7 +110,7 @@ class Cache:
                 # force the first index if this source hasn't been indexed before
                 mine.index(self, cursor, rowid, force=True)
                 cursor.execute('UPDATE mines SET update_time = ? WHERE rowid = ?',
-                             (begin_time, rowid))
+                               (begin_time, rowid))
 
             self.mines[rowid] = mine
 

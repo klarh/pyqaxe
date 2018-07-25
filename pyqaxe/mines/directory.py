@@ -1,8 +1,6 @@
 import os
 import re
 
-from .. import Cache
-
 class Directory:
     """A simple recursive directory browser.
 
