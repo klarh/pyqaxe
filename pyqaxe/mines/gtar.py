@@ -72,6 +72,13 @@ class GTAR:
     - file_id: files table identifier for the archive containing this record
     - cache_id: `Cache` unique identifier for the archive containing this record
 
+    GTAR objects register a **gtar_frame** collation that can be used
+    to sort indices in the standard GTAR way, rather than sqlite's
+    default string comparison::
+
+        cache.query('SELECT data FROM gtar_records WHERE name = "position" '
+                    'ORDER BY gtar_index COLLATE gtar_frame')
+
     .. note::
         Consult the libgetar documentation to find more details about
         how records are encoded.
