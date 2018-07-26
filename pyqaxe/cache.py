@@ -1,6 +1,5 @@
 import datetime
 import pickle
-import re
 import sqlite3
 import uuid
 import weakref

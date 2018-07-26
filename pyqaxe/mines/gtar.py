@@ -1,4 +1,3 @@
-import datetime
 import gtar
 import json
 import logging
