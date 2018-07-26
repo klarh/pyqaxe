@@ -1,7 +1,10 @@
 import gtar
 import json
+import logging
 import sqlite3
 from .. import Cache, util
+
+logger = logging.getLogger(__name__)
 
 def open_gtar(cache_id, file_row):
     cache = Cache.get_opened_cache(cache_id)
@@ -113,7 +116,14 @@ class GTAR:
             file_id = row[0]
             row = row[1:]
 
-            (_, traj) = GTAR.opened_trajectories_(cache.unique_id, row)
+            try:
+                (_, traj) = GTAR.opened_trajectories_(cache.unique_id, row)
+            except RuntimeError as e:
+                # gtar library throws RuntimeErrors when archives are
+                # corrupted, for example; skip this one with a warning
+                logger.warning('{}: {}'.format(row[0], e))
+                continue
+
             for record in traj.getRecordTypes():
                 group = record.getGroup()
                 name = record.getName()

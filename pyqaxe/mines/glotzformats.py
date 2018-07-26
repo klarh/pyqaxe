@@ -1,7 +1,10 @@
 import glotzformats
 import json
+import logging
 import sqlite3
 from .. import Cache, util
+
+logger = logging.getLogger(__name__)
 
 def open_glotzformats(cache_id, file_row, suffix):
     open_mode = 'rb' if suffix in GlotzFormats.binary_formats else 'r'
@@ -105,7 +108,12 @@ class GlotzFormats:
             suffix = row[1].split('.')[-1]
             row = row[1:]
 
-            (_, trajectory) = GlotzFormats.opened_trajectories_(cache.unique_id, row, suffix)
+            try:
+                (_, trajectory) = GlotzFormats.opened_trajectories_(cache.unique_id, row, suffix)
+            except glotzformats.errors.ParserError as e:
+                logger.warning('{}: {}'.format(row[0], e))
+                continue
+
             for frame in range(len(trajectory)):
                 values = [file_id, cache.unique_id, frame]
                 for attr in self.known_frame_attributes:
