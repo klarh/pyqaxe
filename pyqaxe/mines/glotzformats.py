@@ -101,7 +101,7 @@ class GlotzFormats:
         # reading and writing if size of all_values becomes an issue)
         all_values = []
         for row in conn.execute(
-                'SELECT rowid, path, mine_id from files WHERE path LIKE "%.zip" OR '
+                'SELECT rowid, * from files WHERE path LIKE "%.zip" OR '
                 'path LIKE "%.tar" OR path LIKE "%.sqlite" OR '
                 'path LIKE "%.pos" OR path LIKE "%.gsd"'):
             file_id = row[0]
