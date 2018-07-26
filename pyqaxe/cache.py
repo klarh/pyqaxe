@@ -64,9 +64,9 @@ class Cache:
             # TODO add modify time of each file?
             conn.execute(
                 'CREATE TABLE IF NOT EXISTS files '
-                '(path TEXT, mine_id INTEGER, '
+                '(path TEXT, mine_id INTEGER, update_time TIMESTAMP, '
                 'CONSTRAINT unique_path '
-                'UNIQUE (path, mine_id) ON CONFLICT IGNORE)')
+                'UNIQUE (path, mine_id) ON CONFLICT REPLACE)')
 
             self.mines = {}
             for (rowid, pickle_data) in conn.execute(
@@ -109,6 +109,10 @@ class Cache:
                 # only one value
                 pass
 
+            if stored_update_time is None:
+                conn.execute('UPDATE mines SET update_time = ? WHERE rowid = ?',
+                             (datetime.datetime.fromtimestamp(0), rowid))
+
             if force or stored_update_time is None:
                 begin_time = datetime.datetime.now()
                 # force the first index if this source hasn't been indexed before
@@ -131,11 +135,14 @@ class Cache:
         """Close the connection to the database."""
         self.connection_.close()
 
-    def insert_file(self, conn, mine_id, path):
+    def insert_file(self, conn, mine_id, path, mtime=None):
         """Insert a new entry into the files table."""
+        if mtime is None:
+            mtime = datetime.datetime.now()
+
         return conn.execute(
-            'INSERT INTO files VALUES (?, ?)',
-            (path, mine_id))
+            'INSERT INTO files VALUES (?, ?, ?)',
+            (path, mine_id, mtime))
 
     def open_file(self, row, mode='r'):
         """Open an entry from the files table.
@@ -146,7 +153,7 @@ class Cache:
         object.
 
         """
-        (path, mine_id) = row
+        (path, mine_id, _) = row
         return self.mines[mine_id].open(path, mode)
 
     @property

@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import re
@@ -71,18 +72,24 @@ class Directory:
         if not force:
             return
 
-        for (dirpath, dirnames, fnames) in os.walk(self.root, followlinks=True):
-            if self.relative_to:
-                dirpath = os.path.relpath(dirpath, self.relative_to)
+        directory_stack = [self.root]
+        while directory_stack:
+            for entry in os.scandir(directory_stack.pop()):
+                if entry.is_dir():
+                    directory_stack.append(entry.path)
+                else:
+                    valid = all([
+                        entry.name.split('.')[-1] not in self.exclude_suffixes,
+                        all(regex.search(entry.path) is None for regex in self.compiled_regexes_)
+                        ])
+                    if valid:
+                        path = entry.path
+                        if self.relative_to:
+                            path = os.path.relpath(path, self.relative_to)
 
-            for fname in fnames:
-                target_path = os.path.join(dirpath, fname)
-                valid = all([
-                    fname.split('.')[-1] not in self.exclude_suffixes,
-                    all(regex.search(target_path) is None for regex in self.compiled_regexes_)
-                    ])
-                if valid:
-                    cache.insert_file(conn, mine_id, target_path)
+                        stat = entry.stat()
+                        mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
+                        cache.insert_file(conn, mine_id, path, mtime)
 
     def __getstate__(self):
         return [self.root, list(sorted(self.exclude_regexes)),

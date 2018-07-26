@@ -97,13 +97,20 @@ class GlotzFormats:
         if not force:
             return
 
+        for (mine_update_time,) in conn.execute(
+                'SELECT update_time FROM mines WHERE rowid = ?',
+                (mine_id,)):
+            pass
+
         # all rows to insert into glotzformats_frames (TODO interleave
         # reading and writing if size of all_values becomes an issue)
         all_values = []
         for row in conn.execute(
-                'SELECT rowid, * from files WHERE path LIKE "%.zip" OR '
+                'SELECT rowid, * from files WHERE (update_time > ?) AND '
+                '(path LIKE "%.zip" OR '
                 'path LIKE "%.tar" OR path LIKE "%.sqlite" OR '
-                'path LIKE "%.pos" OR path LIKE "%.gsd"'):
+                'path LIKE "%.pos" OR path LIKE "%.gsd")',
+                (mine_update_time,)):
             file_id = row[0]
             suffix = row[1].split('.')[-1]
             row = row[1:]
