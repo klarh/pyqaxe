@@ -6,6 +6,15 @@ import pyqaxe as pyq
 
 class DirectoryTests(unittest.TestCase):
 
+    def test_restore(self):
+        with tempfile.NamedTemporaryFile(suffix='.sqlite') as f:
+            cache = pyq.Cache(f.name)
+            (dirname, fname) = os.path.split(os.path.abspath(__file__))
+            cache.index(pyq.mines.Directory(dirname))
+            cache.close()
+
+            cache = pyq.Cache(f.name)
+
     def test_this_file(self):
         (dirname, fname) = os.path.split(os.path.abspath(__file__))
 

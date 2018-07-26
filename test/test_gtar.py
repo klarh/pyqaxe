@@ -27,6 +27,15 @@ class GTARTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.temp_dir.cleanup()
 
+    def test_restore(self):
+        with tempfile.NamedTemporaryFile(suffix='.sqlite') as f:
+            cache = pyq.Cache(f.name)
+            cache.index(pyq.mines.Directory(self.temp_dir.name))
+            cache.index(GTAR())
+            cache.close()
+
+            cache = pyq.Cache(f.name)
+
     def test_read_data(self):
         cache = pyq.Cache()
         cache.index(pyq.mines.Directory(self.temp_dir.name))
