@@ -1,8 +1,8 @@
 import datetime
-import hashlib
 import pickle
 import re
 import sqlite3
+import uuid
 import weakref
 
 class Cache:
@@ -43,17 +43,20 @@ class Cache:
     def __init__(self, location=':memory:'):
         self.connection_ = sqlite3.connect(
             location, detect_types=sqlite3.PARSE_DECLTYPES)
-
-        unique_location = location
-        if location == ':memory:':
-            while unique_location in self.opened_caches_:
-                match = re.search(r'(\d+)$', unique_location)
-                index = 1 if match is None else int(match.groups()[0])
-                unique_location = ':memory:{}'.format(index + 1)
-        self.unique_id = hashlib.sha256(unique_location.encode('UTF-8')).hexdigest()
-        self.opened_caches_[self.unique_id] = self
+        self.location = location
 
         with self.connection_ as conn:
+
+            conn.execute('CREATE TABLE IF NOT EXISTS pyq_cache_internals '
+                         '(key TEXT, value TEXT, UNIQUE (key) ON CONFLICT REPLACE)')
+            self.unique_id = str(uuid.uuid4())
+            for (value,) in conn.execute(
+                    'SELECT value FROM pyq_cache_internals WHERE key = "unique_id"'):
+                self.unique_id = value
+            conn.execute('INSERT INTO pyq_cache_internals VALUES ("unique_id", ?)',
+                         (self.unique_id,))
+            self.opened_caches_[self.unique_id] = self
+
             conn.execute(
                 'CREATE TABLE IF NOT EXISTS mines '
                 '(pickle BLOB UNIQUE ON CONFLICT IGNORE, update_time DATETIME)')

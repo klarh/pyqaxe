@@ -1,5 +1,10 @@
+import logging
 import os
 import re
+
+from .. import Cache
+
+logger = logging.getLogger(__name__)
 
 class Directory:
     """A simple recursive directory browser.
@@ -10,6 +15,17 @@ class Directory:
     :param root: Base directory to begin searching
     :param exclude_regexes: Iterable of regex patterns that should be excluded from addition to the list of files upon a successful search
     :param exclude_suffixes: Iterable of suffixes that should be excluded from addition to the list of files
+    :param relative: Whether to store absolute or relative paths (see below)
+
+    Relative paths
+    --------------
+
+    Directory can store relative, rather than absolute, paths to
+    files. To use absolute paths, set `relative=False` in the
+    constructor (default). To make the paths be relative to the
+    current working directory, set `relative=True`. To have the paths
+    be relative to the `Cache` object that indexes this mine, set
+    `relative=cache` for that cache object.
 
     Examples::
 
@@ -17,11 +33,25 @@ class Directory:
         cache.index(Directory(exclude_suffixes=['txt', 'zip']))
 
     """
-    def __init__(self, root=os.curdir, exclude_regexes=(), exclude_suffixes=()):
+    def __init__(self, root=os.curdir, exclude_regexes=(), exclude_suffixes=(), relative=False):
         self.root = root
         self.exclude_regexes = set(exclude_regexes)
         self.compiled_regexes_ = [re.compile(pat) for pat in self.exclude_regexes]
         self.exclude_suffixes = set(exclude_suffixes)
+
+        self.relative = relative
+        if isinstance(relative, Cache):
+            if relative.location == ':memory:':
+                logger.warning('Making a Directory mine relative to a transient cache')
+                self.relative_to = None
+            else:
+                self.relative_to = os.path.dirname(relative.location)
+                self.relative = relative.unique_id
+        elif relative:
+            self.relative_to = os.path.abspath(os.curdir)
+        else:
+            self.relative_to = None
+
         self.check_adapters()
 
     @classmethod
@@ -42,6 +72,9 @@ class Directory:
             return
 
         for (dirpath, dirnames, fnames) in os.walk(self.root, followlinks=True):
+            if self.relative_to:
+                dirpath = os.path.relpath(dirpath, self.relative_to)
+
             for fname in fnames:
                 target_path = os.path.join(dirpath, fname)
                 valid = all([
@@ -53,11 +86,20 @@ class Directory:
 
     def __getstate__(self):
         return [self.root, list(sorted(self.exclude_regexes)),
-                list(sorted(self.exclude_suffixes))]
+                list(sorted(self.exclude_suffixes)), self.relative]
 
     def __setstate__(self, state):
+        state = list(state)
+
+        relative = state[3]
+        if isinstance(relative, str):
+            relative = Cache.get_opened_cache(relative)
+            state[3] = relative
+
         self.__init__(*state)
 
-    @staticmethod
-    def open(filename, mode='r'):
+    def open(self, filename, mode='r'):
+        if self.relative_to:
+            filename = os.path.join(self.relative_to, filename)
+
         return open(filename, mode)
