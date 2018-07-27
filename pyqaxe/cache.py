@@ -94,6 +94,7 @@ class Cache:
 
         :param mine: Mine to index
         :param force: If True, force the mine to index its contents (usually implies some IO operations)
+        :returns: The mine object that was indexed
 
         """
         with self.connection_ as conn:
@@ -120,6 +121,8 @@ class Cache:
                              (begin_time, rowid))
 
             self.mines[rowid] = mine
+
+        return mine
 
     def query(self, *args, **kwargs):
         """Run a query on the database.

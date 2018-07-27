@@ -55,8 +55,7 @@ class GTARTests(unittest.TestCase):
     def test_mine_accessors(self):
         cache = pyq.Cache()
         cache.index(pyq.mines.Directory(self.temp_dir.name))
-        gtar_object = GTAR()
-        cache.index(gtar_object)
+        gtar_object = cache.index(GTAR())
 
         constructed_list = [cache.named_mines['Directory'], gtar_object]
         self.assertEqual(constructed_list, cache.ordered_mines)
@@ -64,8 +63,7 @@ class GTARTests(unittest.TestCase):
     def test_set_get_cache(self):
         cache = pyq.Cache()
         cache.index(pyq.mines.Directory(self.temp_dir.name))
-        cache_owner = GTAR()
-        cache.index(cache_owner)
+        cache_owner = cache.index(GTAR())
 
         old_cache_size = cache_owner.get_cache_size()
         new_cache_size = 2*old_cache_size
