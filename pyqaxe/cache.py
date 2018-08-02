@@ -58,7 +58,7 @@ class Cache:
 
             conn.execute(
                 'CREATE TABLE IF NOT EXISTS mines '
-                '(pickle BLOB UNIQUE ON CONFLICT IGNORE, update_time TIMESTAP)')
+                '(pickle BLOB UNIQUE ON CONFLICT IGNORE, update_time TIMESTAMP)')
 
             # TODO add modify time of each file?
             conn.execute(
