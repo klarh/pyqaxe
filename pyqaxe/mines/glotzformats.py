@@ -56,6 +56,9 @@ class GlotzFormats:
 
     binary_formats = {'zip', 'tar', 'sqlite', 'gsd'}
 
+    # formats that need a named file to exist somewhere to read
+    named_formats = {'zip', 'tar', 'sqlite'}
+
     readers = dict(
         zip=glotzformats.reader.GetarFileReader,
         tar=glotzformats.reader.GetarFileReader,
@@ -156,7 +159,8 @@ class GlotzFormats:
     @classmethod
     def get_opened_trajectory(cls, cache, row, suffix):
         open_mode = 'rb' if suffix in GlotzFormats.binary_formats else 'r'
-        opened_file = cache.open_file(row, open_mode)
+        named = suffix in cls.named_formats
+        opened_file = cache.open_file(row, open_mode, named=named)
 
         if opened_file not in cls.opened_trajectories_:
             opened_file.seek(0)
