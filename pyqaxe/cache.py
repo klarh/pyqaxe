@@ -4,6 +4,8 @@ import sqlite3
 import uuid
 import weakref
 
+from .util import LRU_Cache
+
 class Cache:
     """A queryable cache of data found in one or more datasets
 
@@ -43,6 +45,7 @@ class Cache:
         self.connection_ = sqlite3.connect(
             location, detect_types=sqlite3.PARSE_DECLTYPES)
         self.location = location
+        self.opened_file_cache_ = LRU_Cache(self.open_file_, self.close_file_, 32)
 
         with self.connection_ as conn:
 
@@ -64,8 +67,8 @@ class Cache:
             conn.execute(
                 'CREATE TABLE IF NOT EXISTS files '
                 '(path TEXT, mine_id INTEGER, update_time TIMESTAMP, '
-                'CONSTRAINT unique_path '
-                'UNIQUE (path, mine_id) ON CONFLICT REPLACE)')
+                'parent INTEGER, CONSTRAINT unique_path '
+                'UNIQUE (path, mine_id, parent) ON CONFLICT REPLACE)')
 
             self.mines = {}
             for (rowid, pickle_data) in conn.execute(
@@ -113,14 +116,14 @@ class Cache:
                 conn.execute('UPDATE mines SET update_time = ? WHERE rowid = ?',
                              (datetime.datetime.fromtimestamp(0), rowid))
 
+            self.mines[rowid] = mine
+
             if force or stored_update_time is None:
                 begin_time = datetime.datetime.now()
                 # force the first index if this source hasn't been indexed before
                 mine.index(self, conn, rowid, force=True)
                 conn.execute('UPDATE mines SET update_time = ? WHERE rowid = ?',
                              (begin_time, rowid))
-
-            self.mines[rowid] = mine
 
         return mine
 
@@ -137,14 +140,26 @@ class Cache:
         """Close the connection to the database."""
         self.connection_.close()
 
-    def insert_file(self, conn, mine_id, path, mtime=None):
+    def insert_file(self, conn, mine_id, path, mtime=None, parent=None):
         """Insert a new entry into the files table."""
         if mtime is None:
             mtime = datetime.datetime.now()
 
         return conn.execute(
-            'INSERT INTO files VALUES (?, ?, ?)',
-            (path, mine_id, mtime))
+            'INSERT INTO files VALUES (?, ?, ?, ?)',
+            (path, mine_id, mtime, parent))
+
+    def open_file_(self, row, mode):
+        (path, mine_id, _, parent) = row
+
+        if mine_id is not None:
+            return self.mines[mine_id].open(path, mode, self, parent)
+
+        return open(path, mode)
+
+    @staticmethod
+    def close_file_(f):
+        return f.close()
 
     def open_file(self, row, mode='r'):
         """Open an entry from the files table.
@@ -155,8 +170,7 @@ class Cache:
         object.
 
         """
-        (path, mine_id, _) = row
-        return self.mines[mine_id].open(path, mode)
+        return self.opened_file_cache_(row, mode)
 
     @property
     def named_mines(self):
@@ -167,3 +181,11 @@ class Cache:
     def ordered_mines(self):
         """A list of each active mine, in order of indexing."""
         return [self.mines[key] for key in sorted(self.mines)]
+
+    def get_cache_size(self):
+        """Return the maximumnumber of files to keep open."""
+        return self.opened_file_cache_.max_size
+
+    def set_cache_size(self, value):
+        """Set the maximum number of files to keep open."""
+        self.opened_file_cache_.max_size = value

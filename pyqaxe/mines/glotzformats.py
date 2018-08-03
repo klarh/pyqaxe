@@ -1,21 +1,12 @@
 import glotzformats
 import json
 import logging
+import re
 import sqlite3
-from .. import Cache, util
+import weakref
+from .. import Cache
 
 logger = logging.getLogger(__name__)
-
-def open_glotzformats(cache_id, file_row, suffix):
-    open_mode = 'rb' if suffix in GlotzFormats.binary_formats else 'r'
-    cache = Cache.get_opened_cache(cache_id)
-    opened_file = cache.open_file(file_row, open_mode)
-    trajectory = GlotzFormats.readers[suffix]().read(opened_file)
-    return (opened_file, trajectory)
-
-def close_glotzformats(args):
-    (opened_file, _) = args
-    opened_file.close()
 
 def encode_glotzformats_data(file_id, cache_id, frame, attribute):
     return json.dumps([file_id, cache_id, frame, attribute]).encode('UTF-8')
@@ -29,7 +20,7 @@ def convert_glotzformats_data(contents):
 
     suffix = row[0].split('.')[-1]
 
-    (_, trajectory) = GlotzFormats.opened_trajectories_(cache_id, row, suffix)
+    trajectory = GlotzFormats.get_opened_trajectory(cache, row, suffix)
     return getattr(trajectory[frame], attribute)
 
 class GlotzFormats:
@@ -61,7 +52,7 @@ class GlotzFormats:
         about the encoding of the various data types listed here.
 
     """
-    opened_trajectories_ = util.LRU_Cache(open_glotzformats, close_glotzformats, 16)
+    opened_trajectories_ = weakref.WeakKeyDictionary()
 
     binary_formats = {'zip', 'tar', 'sqlite', 'gsd'}
 
@@ -76,8 +67,10 @@ class GlotzFormats:
     known_frame_attributes = ['box', 'types', 'positions', 'velocities',
                               'orientations', 'shapedef']
 
-    def __init__(self):
-        pass
+    def __init__(self, exclude_regexes=(), exclude_suffixes=()):
+        self.exclude_regexes = set(exclude_regexes)
+        self.compiled_regexes_ = [re.compile(pat) for pat in self.exclude_regexes]
+        self.exclude_suffixes = set(exclude_suffixes)
 
     def index(self, cache, conn, mine_id=None, force=False):
         self.check_adapters()
@@ -111,12 +104,19 @@ class GlotzFormats:
                 'path LIKE "%.tar" OR path LIKE "%.sqlite" OR '
                 'path LIKE "%.pos" OR path LIKE "%.gsd")',
                 (mine_update_time,)):
-            file_id = row[0]
-            suffix = row[1].split('.')[-1]
-            row = row[1:]
+            file_id, row = row[0], row[1:]
+            path = row[0]
+            suffix = path.split('.')[-1]
+
+            valid = all([
+                suffix not in self.exclude_suffixes,
+                all(regex.search(path) is None for regex in self.compiled_regexes_)
+                ])
+            if not valid:
+                continue
 
             try:
-                (_, trajectory) = GlotzFormats.opened_trajectories_(cache.unique_id, row, suffix)
+                trajectory = self.get_opened_trajectory(cache, row, suffix)
             except glotzformats.errors.ParserError as e:
                 logger.warning('{}: {}'.format(row[0], e))
                 continue
@@ -147,17 +147,19 @@ class GlotzFormats:
         cls.has_registered_adapters = True
 
     def __getstate__(self):
-        return []
+        return [list(sorted(self.exclude_regexes)),
+                list(sorted(self.exclude_suffixes))]
 
     def __setstate__(self, state):
         self.__init__(*state)
 
     @classmethod
-    def get_cache_size(cls):
-        """Return the maximumnumber of files to keep open."""
-        return cls.opened_trajectories_.max_size
+    def get_opened_trajectory(cls, cache, row, suffix):
+        open_mode = 'rb' if suffix in GlotzFormats.binary_formats else 'r'
+        opened_file = cache.open_file(row, open_mode)
 
-    @classmethod
-    def set_cache_size(cls, value):
-        """Set the maximum number of files to keep open."""
-        cls.opened_trajectories_.max_size = value
+        if opened_file not in cls.opened_trajectories_:
+            opened_file.seek(0)
+            cls.opened_trajectories_[opened_file] = GlotzFormats.readers[suffix]().read(opened_file)
+
+        return cls.opened_trajectories_[opened_file]

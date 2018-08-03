@@ -89,7 +89,7 @@ class Directory:
 
                         stat = entry.stat()
                         mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
-                        cache.insert_file(conn, mine_id, path, mtime)
+                        cache.insert_file(conn, mine_id, path, mtime, None)
 
     def __getstate__(self):
         return [self.root, list(sorted(self.exclude_regexes)),
@@ -105,7 +105,7 @@ class Directory:
 
         self.__init__(*state)
 
-    def open(self, filename, mode='r'):
+    def open(self, filename, mode='r', owning_cache=None, parent=None):
         if self.relative_to:
             filename = os.path.join(self.relative_to, filename)
 
