@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def open_gtar(cache_id, file_row):
     cache = Cache.get_opened_cache(cache_id)
-    opened_file = cache.open_file(file_row, 'rb')
+    opened_file = cache.open_file(file_row, 'rb', named=True)
     gtar_traj = gtar.GTAR(opened_file.name, 'r')
     return (opened_file, gtar_traj)
 

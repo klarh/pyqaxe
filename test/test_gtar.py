@@ -23,6 +23,11 @@ class GTARTests(unittest.TestCase):
             traj.writePath('frames/10/position.f32.ind', positions)
             traj.writeStr('test.json', test_json)
 
+        cls.nested_tar_name = os.path.join(cls.temp_dir.name, 'nested.tar')
+        with gtar.GTAR(cls.nested_tar_name, 'w') as traj, \
+             open(os.path.join(cls.temp_dir.name, 'test.zip'), 'rb') as inner:
+            traj.writeBytes('test.zip', inner.read())
+
     @classmethod
     def tearDownClass(cls):
         cls.temp_dir.cleanup()
@@ -70,6 +75,25 @@ class GTARTests(unittest.TestCase):
         cache_owner.set_cache_size(new_cache_size)
 
         self.assertEqual(new_cache_size, cache_owner.get_cache_size())
+
+    def test_inside_tar_archive(self):
+        cache = pyq.Cache()
+        cache.index(pyq.mines.TarFile(self.nested_tar_name))
+        cache.index(GTAR())
+
+        for row in cache.query('select * from gtar_records'):
+            print(row)
+
+        found_paths = set(row[0] for row in
+                          cache.query('select path from gtar_records'))
+
+        self.assertIn('test.json', found_paths)
+
+        for (path, data) in cache.query('select path, data from gtar_records'):
+            if path == 'test.json':
+                decoded_test_json = json.loads(data)
+
+        self.assertEqual(decoded_test_json['b'], 4)
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,6 +1,9 @@
 import datetime
+import os
 import pickle
+import shutil
 import sqlite3
+import tempfile
 import uuid
 import weakref
 
@@ -149,19 +152,30 @@ class Cache:
             'INSERT INTO files VALUES (?, ?, ?, ?)',
             (path, mine_id, mtime, parent))
 
-    def open_file_(self, row, mode):
+    def open_file_(self, row, mode, named):
         (path, mine_id, _, parent) = row
 
         if mine_id is not None:
-            return self.mines[mine_id].open(path, mode, self, parent)
+            result = self.mines[mine_id].open(path, mode, self, parent)
+        else:
+            result = open(path, mode)
 
-        return open(path, mode)
+        if named and parent is not None:
+            target_fname = os.path.basename(path)
+            tempfile_mode = mode.replace('r', 'w+')
+            new_target = tempfile.NamedTemporaryFile(mode=tempfile_mode, suffix=target_fname)
+            with result:
+                shutil.copyfileobj(result, new_target)
+            new_target.seek(0)
+            result = new_target
+
+        return result
 
     @staticmethod
     def close_file_(f):
         return f.close()
 
-    def open_file(self, row, mode='r'):
+    def open_file(self, row, mode='r', named=False):
         """Open an entry from the files table.
 
         Pass this function an entire row from the files table, just as
@@ -170,7 +184,7 @@ class Cache:
         object.
 
         """
-        return self.opened_file_cache_(row, mode)
+        return self.opened_file_cache_(row, mode, named)
 
     @property
     def named_mines(self):
