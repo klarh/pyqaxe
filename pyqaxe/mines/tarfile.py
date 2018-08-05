@@ -89,7 +89,7 @@ class TarFile:
 
         if opened_file not in cls.opened_tarfiles_:
             opened_file.seek(0)
-            cls.opened_tarfiles_[opened_file] = tarfile.TarFile(fileobj=opened_file)
+            cls.opened_tarfiles_[opened_file] = tarfile.open(fileobj=opened_file)
         return cls.opened_tarfiles_[opened_file]
 
     def open(self, filename, mode='r', owning_cache=None, parent=None):
