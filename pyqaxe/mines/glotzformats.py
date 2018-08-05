@@ -82,10 +82,10 @@ class GlotzFormats:
             ['{} GLOTZFORMATS_{}'.format(attr, attr)
              for attr in self.known_frame_attributes])
         query = ('CREATE TABLE IF NOT EXISTS glotzformats_frames '
-                 '(file_id INTEGER, cache_id TEXT, '
+                 '(file_id INTEGER, '
                  'frame INTEGER, {attributes}, '
                  'CONSTRAINT unique_glotzformats_path '
-                 'UNIQUE (file_id, cache_id, frame) ON CONFLICT IGNORE)').format(
+                 'UNIQUE (file_id, frame) ON CONFLICT IGNORE)').format(
                      attributes=all_attributes)
         conn.execute(query)
 
@@ -125,13 +125,13 @@ class GlotzFormats:
                 continue
 
             for frame in range(len(trajectory)):
-                values = [file_id, cache.unique_id, frame]
+                values = [file_id, frame]
                 for attr in self.known_frame_attributes:
                     values.append(encode_glotzformats_data(file_id, cache.unique_id, frame, attr))
                 all_values.append(values)
 
         query = 'INSERT INTO glotzformats_frames VALUES ({})'.format(
-            ', '.join((len(self.known_frame_attributes) + 3)*'?'))
+            ', '.join((len(self.known_frame_attributes) + 2)*'?'))
         for values in all_values:
             conn.execute(query, values)
 
