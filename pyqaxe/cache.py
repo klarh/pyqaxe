@@ -137,7 +137,8 @@ class Cache:
 
         """
         with self.connection_ as conn:
-            return conn.execute(*args, **kwargs)
+            for row in conn.execute(*args, **kwargs):
+                yield row
 
     def close(self):
         """Close the connection to the database."""
