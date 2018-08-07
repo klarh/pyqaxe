@@ -11,7 +11,32 @@ from .. import Cache
 logger = logging.getLogger(__name__)
 
 class TarFile:
-    """Expose the files within one or more tar-format archives
+    """Expose the files within one or more tar-format archives.
+
+    `TarFile` populates the files table from one or more "source" tar
+    archives. These archives can be entries that have been found by
+    previously-indexed mines (`target=None`) or a single file that
+    exists somewhere in the filesystem (`target='/path/to/file.tar'`).
+
+    :param target: Optional single tar file to open. If not given, expose records found inside all tar archives
+    :param exclude_regexes: Iterable of regex patterns that should be excluded from addition to the list of files upon a successful search
+    :param exclude_suffixes: Iterable of suffixes that should be excluded from addition to the list of files
+    :param relative: Whether to store absolute or relative paths (see below)
+
+    Relative paths
+    --------------
+
+    TarFile can store the target tar archive as a relative, rather
+    than absolute, path. To use absolute paths, set `relative=False`
+    in the constructor (default). To make the path be relative to the
+    current working directory, set `relative=True`. To have the path
+    be relative to the `Cache` object that indexes this mine, set
+    `relative=cache` for that cache object.
+
+    Examples::
+
+        cache.index(TarFile('archive.tar', relative=True))
+        cache.index(TarFile(exclude_regexes=[r'/\..*']))
 
     """
 
