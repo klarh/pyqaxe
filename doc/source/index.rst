@@ -51,6 +51,9 @@ Documentation
 .. automodule:: pyqaxe.mines.glotzformats
    :members:
 
+.. automodule:: pyqaxe.mines.tarfile
+   :members:
+
 Indices and tables
 ==================
 
