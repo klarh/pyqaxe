@@ -66,7 +66,7 @@ class TarFile:
             self.target = os.path.relpath(self.target, self.relative_to)
 
     def index(self, cache, conn, mine_id=None, force=False):
-        if not force:
+        if not force or cache.read_only:
             return
 
         files_to_index = []

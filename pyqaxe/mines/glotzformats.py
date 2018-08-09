@@ -90,7 +90,7 @@ class GlotzFormats:
         conn.execute(query)
 
         # don't do file IO if we aren't forced
-        if not force:
+        if not force or cache.read_only:
             return
 
         for (mine_update_time,) in conn.execute(

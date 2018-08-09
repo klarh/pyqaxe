@@ -1,11 +1,15 @@
 import datetime
+import logging
 import os
 import pickle
 import shutil
 import sqlite3
 import tempfile
+import urllib
 import uuid
 import weakref
+
+logger = logging.getLogger(__name__)
 
 from .util import LRU_Cache
 
@@ -26,6 +30,10 @@ class Cache:
     by simply opening a new `Cache` object pointing to the same file
     location.
 
+    Caches can be opened in *read-only* mode which prevents
+    modifications to the underlying database. Data can be selected
+    from read-only databases, but indexing mines will not work.
+
     Cache objects create the following tables in the database:
 
     - mines: The data sources that have been indexed by this object
@@ -44,22 +52,33 @@ class Cache:
     """
     opened_caches_ = weakref.WeakValueDictionary()
 
-    def __init__(self, location=':memory:'):
-        self.connection_ = sqlite3.connect(
-            location, detect_types=sqlite3.PARSE_DECLTYPES)
+    def __init__(self, location=':memory:', read_only=False):
         self.location = location
+
+        if location == ':memory:' and read_only:
+            logger.warning(
+                'Opened an in-memory cache read_only, ignoring read_only flag')
+            read_only = False
+        self.read_only = read_only
+
+        query_string = '?mode=ro' if read_only else ''
+        location = 'file:{}{}'.format(urllib.parse.quote(location, safe=':/'), query_string)
+        self.connection_ = sqlite3.connect(
+            location, detect_types=sqlite3.PARSE_DECLTYPES, uri=True)
         self.opened_file_cache_ = LRU_Cache(self.open_file_, self.close_file_, 32)
 
         with self.connection_ as conn:
 
             conn.execute('CREATE TABLE IF NOT EXISTS pyq_cache_internals '
                          '(key TEXT, value TEXT, UNIQUE (key) ON CONFLICT REPLACE)')
+
             self.unique_id = str(uuid.uuid4())
             for (value,) in conn.execute(
                     'SELECT value FROM pyq_cache_internals WHERE key = "unique_id"'):
                 self.unique_id = value
-            conn.execute('INSERT INTO pyq_cache_internals VALUES ("unique_id", ?)',
-                         (self.unique_id,))
+            if not self.read_only:
+                conn.execute('INSERT INTO pyq_cache_internals VALUES ("unique_id", ?)',
+                             (self.unique_id,))
             self.opened_caches_[self.unique_id] = self
 
             conn.execute(
@@ -115,9 +134,10 @@ class Cache:
                 # only one value
                 pass
 
-            if stored_update_time is None:
-                conn.execute('UPDATE mines SET update_time = ? WHERE rowid = ?',
-                             (datetime.datetime.fromtimestamp(0), rowid))
+            if not self.read_only:
+                if stored_update_time is None:
+                    conn.execute('UPDATE mines SET update_time = ? WHERE rowid = ?',
+                                 (datetime.datetime.fromtimestamp(0), rowid))
 
             self.mines[rowid] = mine
 
@@ -125,8 +145,9 @@ class Cache:
                 begin_time = datetime.datetime.now()
                 # force the first index if this source hasn't been indexed before
                 mine.index(self, conn, rowid, force=True)
-                conn.execute('UPDATE mines SET update_time = ? WHERE rowid = ?',
-                             (begin_time, rowid))
+                if not self.read_only:
+                    conn.execute('UPDATE mines SET update_time = ? WHERE rowid = ?',
+                                 (begin_time, rowid))
 
         return mine
 

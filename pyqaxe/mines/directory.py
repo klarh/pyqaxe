@@ -69,7 +69,7 @@ class Directory:
     def index(self, cache, conn, mine_id=None, force=False):
         self.check_adapters()
 
-        if not force:
+        if not force or cache.read_only:
             return
 
         directory_stack = [self.root]
