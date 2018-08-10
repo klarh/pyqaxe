@@ -2,6 +2,22 @@
 
 from setuptools import setup
 
+long_description="""
+Pyqaxe is a library for transparently accessing datasets as they
+change forms.
+
+Documentation
+=============
+
+Full documentation is available in standard sphinx form::
+
+  $ cd doc
+  $ make html
+
+Automatically-built documentation is available at
+https://pyqaxe.readthedocs.io .
+"""
+
 with open('pyqaxe/version.py') as version_file:
     exec(version_file.read())
 
@@ -17,7 +33,7 @@ setup(name='pyqaxe',
       description='Dataset indexing and curation tool',
       install_requires=[],
       license='BSD',
-      long_description='',
+      long_description=long_description,
       packages=[
           'pyqaxe'
       ],
