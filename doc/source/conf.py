@@ -41,6 +41,8 @@ extensions = [
     'sphinx.ext.coverage',
 ]
 
+autodoc_mock_imports = ['gtar', 'glotzformats']
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
