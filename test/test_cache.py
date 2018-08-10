@@ -31,18 +31,18 @@ class CacheTests(unittest.TestCase):
     def test_readonly(self):
         with tempfile.NamedTemporaryFile(suffix='.sqlite') as f:
             # when first creating a cache file, we should get an error
-            # in readonly mode
+            # in read_only mode
             with self.assertRaises(sqlite3.OperationalError):
-                cache = pyq.Cache(f.name, readonly=True)
+                cache = pyq.Cache(f.name, read_only=True)
 
             cache = pyq.Cache(f.name)
             (dirname, fname) = os.path.split(os.path.abspath(__file__))
             cache.index(pyq.mines.Directory(dirname))
 
-            # with readonly mode, we shouldn't have an exception
+            # with read_only mode, we shouldn't have an exception
             # (tables have already been created)
             for (path,) in cache.query('select path from files limit 2'):
-                cache2 = pyq.Cache(f.name, readonly=True)
+                cache2 = pyq.Cache(f.name, read_only=True)
 
             with self.assertRaises(sqlite3.OperationalError):
                 for (path,) in cache.query('select path from files limit 2'):
