@@ -3,6 +3,7 @@ import io
 import logging
 import os
 import re
+import stat
 import tarfile
 import weakref
 
@@ -21,17 +22,27 @@ class TarFile:
     :param target: Optional single tar file to open. If not given, expose records found inside all tar archives
     :param exclude_regexes: Iterable of regex patterns that should be excluded from addition to the list of files upon a successful search
     :param exclude_suffixes: Iterable of suffixes that should be excluded from addition to the list of files
-    :param relative: Whether to store absolute or relative paths (see below)
+    :param relative: Whether to use absolute or relative paths for `target` argument (see below)
 
     Relative paths
     --------------
 
-    TarFile can store the target tar archive as a relative, rather
-    than absolute, path. To use absolute paths, set `relative=False`
-    in the constructor (default). To make the path be relative to the
-    current working directory, set `relative=True`. To have the path
-    be relative to the `Cache` object that indexes this mine, set
-    `relative=cache` for that cache object.
+    TarFile can store the target tar archive location as a relative,
+    rather than absolute, path. To use paths exactly as they are
+    given, set `relative=False` in the constructor (default). To make
+    the path be relative to the current working directory, set
+    `relative=True`. To have the path be relative to the `Cache`
+    object that indexes this mine, set `relative=cache` for that cache
+    object.
+
+    Links
+    -----
+
+    `TarFile` can be used to expose bundles of links to files on the
+    filesystem. When indexing the `TarFile`, if a link is found and
+    the file it references exists, that file will be added to the
+    files table. Relative link pathss are interpreted with respect to
+    the tar file they come from.
 
     Examples::
 
@@ -74,25 +85,34 @@ class TarFile:
             target = self.target
             if self.relative_to:
                 target = os.path.join(self.relative_to, target)
-            stat = os.stat(target)
-            mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
+            stat_ = os.stat(target)
+            mtime = datetime.datetime.fromtimestamp(stat_.st_mtime)
             rowid = cache.insert_file(conn, None, target, mtime, None).lastrowid
-            for row in conn.execute('SELECT rowid, * from files WHERE rowid = ?', (rowid,)):
+            for row in conn.execute('SELECT rowid, path, * from files WHERE rowid = ?', (rowid,)):
                 files_to_index.append(row)
         else:
-            for row in conn.execute('SELECT rowid, * from files WHERE path LIKE "%.tar"'):
+            for row in conn.execute('SELECT rowid, path, * from files WHERE path LIKE "%.tar"'):
                 files_to_index.append(row)
 
         for row in files_to_index:
-            tf_id, row = row[0], row[1:]
+            tf_id, tf_path, row = row[0], row[1], row[2:]
             tf = self.get_opened_tarfile(cache, row)
-            self.index_contents_(tf, cache, conn, mine_id, tf_id)
+            self.index_contents_(tf, cache, conn, mine_id, tf_id, tf_path)
 
-    def index_contents_(self, tf, cache, conn, mine_id, tf_id):
+    def index_contents_(self, tf, cache, conn, mine_id, tf_id, tf_path):
         for entry in tf:
             if entry.isfile():
                 mtime = datetime.datetime.fromtimestamp(entry.mtime)
                 cache.insert_file(conn, mine_id, entry.name, mtime, tf_id)
+            elif entry.issym():
+                path = os.path.join(tf_path, entry.linkname)
+                try:
+                    stat_ = os.stat(path)
+                    mtime = datetime.datetime.fromtimestamp(stat_.st_mtime)
+                    if stat.S_ISREG(stat_.st_mode):
+                        cache.insert_file(conn, mine_id, entry.linkname, mtime, None)
+                except FileNotFoundError:
+                    logger.debug('Skipping TarFile symbolic link "{}"'.format(path))
 
     def __getstate__(self):
         return [self.target, list(sorted(self.exclude_regexes)),
@@ -118,7 +138,9 @@ class TarFile:
         return cls.opened_tarfiles_[opened_file]
 
     def open(self, filename, mode='r', owning_cache=None, parent=None):
-        assert parent is not None
+        # links
+        if parent is None:
+            return open(filename, mode)
 
         for parent_row in owning_cache.query(
                 'SELECT * FROM files WHERE rowid = ?', (parent,)):
