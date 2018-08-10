@@ -18,15 +18,13 @@ class Directory:
     :param exclude_suffixes: Iterable of suffixes that should be excluded from addition to the list of files
     :param relative: Whether to store absolute or relative paths (see below)
 
-    Relative paths
-    --------------
-
-    Directory can store relative, rather than absolute, paths to
-    files. To use absolute paths, set `relative=False` in the
-    constructor (default). To make the paths be relative to the
-    current working directory, set `relative=True`. To have the paths
-    be relative to the `Cache` object that indexes this mine, set
-    `relative=cache` for that cache object.
+    **Relative paths**: Directory can store relative, rather than
+    absolute, paths to files. To use absolute paths, set
+    `relative=False` in the constructor (default). To make the paths
+    be relative to the current working directory, set
+    `relative=True`. To have the paths be relative to the `Cache`
+    object that indexes this mine, set `relative=cache` for that cache
+    object.
 
     Examples::
 

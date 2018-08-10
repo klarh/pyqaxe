@@ -24,25 +24,19 @@ class TarFile:
     :param exclude_suffixes: Iterable of suffixes that should be excluded from addition to the list of files
     :param relative: Whether to use absolute or relative paths for `target` argument (see below)
 
-    Relative paths
-    --------------
+    **Relative paths**: `TarFile` can store the target tar archive
+    location as a relative, rather than absolute, path. To use paths
+    exactly as they are given, set `relative=False` in the constructor
+    (default). To make the path be relative to the current working
+    directory, set `relative=True`. To have the path be relative to
+    the `Cache` object that indexes this mine, set `relative=cache`
+    for that cache object.
 
-    TarFile can store the target tar archive location as a relative,
-    rather than absolute, path. To use paths exactly as they are
-    given, set `relative=False` in the constructor (default). To make
-    the path be relative to the current working directory, set
-    `relative=True`. To have the path be relative to the `Cache`
-    object that indexes this mine, set `relative=cache` for that cache
-    object.
-
-    Links
-    -----
-
-    `TarFile` can be used to expose bundles of links to files on the
-    filesystem. When indexing the `TarFile`, if a link is found and
-    the file it references exists, that file will be added to the
-    files table. Relative link pathss are interpreted with respect to
-    the tar file they come from.
+    **Links**: `TarFile` can be used to expose bundles of links to
+    files on the filesystem. When indexing the `TarFile`, if a link is
+    found and the file it references exists, that file will be added
+    to the files table. Relative link pathss are interpreted with
+    respect to the tar file they come from.
 
     Examples::
 
