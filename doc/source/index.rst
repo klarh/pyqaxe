@@ -27,7 +27,12 @@ tables and adapters using python's `sqlite3` module.
 Installation
 ============
 
-Use the typical distutils procedure::
+Install from PyPI::
+
+  pip install pyqaxe
+
+Alternatively, install from source using the typical distutils
+procedure::
 
   python setup.py install
 
