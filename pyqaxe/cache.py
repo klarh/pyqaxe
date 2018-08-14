@@ -5,7 +5,7 @@ import pickle
 import shutil
 import sqlite3
 import tempfile
-import urllib
+import urllib, urllib.parse
 import uuid
 import weakref
 
