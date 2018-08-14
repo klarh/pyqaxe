@@ -164,6 +164,7 @@ class Cache:
     def close(self):
         """Close the connection to the database."""
         self.connection_.close()
+        self.opened_file_cache_.clear()
 
     def insert_file(self, conn, mine_id, path, mtime=None, parent=None):
         """Insert a new entry into the files table."""

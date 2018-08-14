@@ -1,4 +1,7 @@
 
+LEFT = -1
+RIGHT = 1
+
 class LRU_Cache:
     def __init__(self, generator, finalizer, max_size=16):
         self.max_size = max_size
@@ -22,13 +25,35 @@ class LRU_Cache:
             self.tick_params_[self.ticks_] = params
             self.last_param_ticks_[params] = self.ticks_
 
-        while len(self.results_) > self.max_size:
-            oldest_tick = min(self.tick_params_)
-            oldest_params = self.tick_params_[oldest_tick]
-            self.last_param_ticks_.pop(oldest_params)
-            self.tick_params_.pop(oldest_tick)
-
-            self.finalizer(self.results_.pop(oldest_params))
+        while len(self) > self.max_size:
+            self.popleft()
 
         self.ticks_ += 1
         return self.results_[params]
+
+    def __len__(self):
+        return len(self.results_)
+
+    def popleft(self):
+        return self.pop_(LEFT)
+
+    def pop(self):
+        return self.pop_(RIGHT)
+
+    def pop_(self, side=LEFT):
+        if len(self) == 0:
+            name = {LEFT: 'popleft', RIGHT: 'pop'}[side]
+            raise IndexError('{} from empty LRU_Cache'.format(name))
+
+        extremum = max if side == RIGHT else min
+        oldest_tick = extremum(self.tick_params_)
+        oldest_params = self.tick_params_[oldest_tick]
+        self.last_param_ticks_.pop(oldest_params)
+        self.tick_params_.pop(oldest_tick)
+
+        self.finalizer(self.results_.pop(oldest_params))
+        return oldest_params
+
+    def clear(self):
+        while len(self):
+            self.pop()
