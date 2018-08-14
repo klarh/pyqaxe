@@ -3,6 +3,11 @@ import logging
 import os
 import re
 
+try:
+    from os import scandir
+except ImportError:
+    from scandir import scandir
+
 from .. import Cache
 
 logger = logging.getLogger(__name__)
@@ -72,7 +77,7 @@ class Directory:
 
         directory_stack = [self.root]
         while directory_stack:
-            for entry in os.scandir(directory_stack.pop()):
+            for entry in scandir(directory_stack.pop()):
                 if entry.is_dir():
                     directory_stack.append(entry.path)
                 else:
