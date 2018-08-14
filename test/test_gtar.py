@@ -81,8 +81,11 @@ class GTARTests(unittest.TestCase):
         cache.index(pyq.mines.TarFile(self.nested_tar_name))
         cache.index(GTAR())
 
+        row = None
         for row in cache.query('select * from gtar_records'):
-            print(row)
+            pass
+
+        self.assertNotEqual(row, None)
 
         found_paths = set(row[0] for row in
                           cache.query('select path from gtar_records'))
