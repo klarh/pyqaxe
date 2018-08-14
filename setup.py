@@ -31,7 +31,7 @@ setup(name='pyqaxe',
           'Topic :: Database :: Front-Ends'
       ],
       description='Dataset indexing and curation tool',
-      install_requires=["scandir ; python_version<'3.5'"],
+      install_requires=['scandir ; python_version<"3.5"'],
       license='BSD',
       long_description=long_description,
       packages=[
