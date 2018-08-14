@@ -3,13 +3,17 @@ import os
 import tarfile
 import tempfile
 import unittest
-import glotzformats
-import numpy as np
 
 import pyqaxe as pyq
-from pyqaxe.mines.gtar import GTAR
-from pyqaxe.mines.glotzformats import GlotzFormats
 
+try:
+    import numpy as np
+    import glotzformats
+    from pyqaxe.mines.glotzformats import GlotzFormats
+except ImportError:
+    np = glotzformats = GlotzFormats = None
+
+@unittest.skipIf(glotzformats is None, "Failed to import numpy or glotzformats")
 class GlotzFormatsTests(unittest.TestCase):
     NUM_FRAMES = 3
 

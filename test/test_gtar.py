@@ -2,12 +2,16 @@ import json
 import os
 import tempfile
 import unittest
-import gtar
 
 import pyqaxe as pyq
-from pyqaxe.mines.gtar import GTAR
 
+try:
+    import gtar
+    from pyqaxe.mines.gtar import GTAR
+except ImportError:
+    gtar = GTAR = None
 
+@unittest.skipIf(gtar is None, "Failed to import gtar")
 class GTARTests(unittest.TestCase):
 
     @classmethod
