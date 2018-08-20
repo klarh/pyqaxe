@@ -48,5 +48,19 @@ class CacheTests(unittest.TestCase):
                 for (path,) in cache.query('select path from files limit 2'):
                     cache2 = pyq.Cache(f.name)
 
+    def test_context(self):
+        with open(os.path.join(self.temp_dir.name, 'test_context.txt'), 'w') as f:
+            f.write('Test text')
+
+        with pyq.Cache() as cache:
+            cache.index(pyq.mines.Directory(self.temp_dir.name))
+
+            self.assertEqual(len(cache.opened_file_cache_), 0)
+            for row in cache.query('select * from files where path like "%test_context.txt"'):
+                fileobj = cache.open_file(row)
+            self.assertEqual(len(cache.opened_file_cache_), 1)
+
+        self.assertEqual(len(cache.opened_file_cache_), 0)
+
 if __name__ == '__main__':
     unittest.main()

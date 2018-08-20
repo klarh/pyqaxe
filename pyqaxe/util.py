@@ -57,3 +57,6 @@ class LRU_Cache:
     def clear(self):
         while len(self):
             self.pop()
+
+    def __del__(self):
+        self.clear()

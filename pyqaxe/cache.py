@@ -34,6 +34,10 @@ class Cache:
     modifications to the underlying database. Data can be selected
     from read-only databases, but indexing mines will not work.
 
+    Caches can be used as context managers. When the context exits,
+    the cache (and all of its open file handles) will be closed
+    automatically.
+
     Cache objects create the following tables in the database:
 
     - mines: The data sources that have been indexed by this object
@@ -98,6 +102,12 @@ class Cache:
                     'SELECT rowid, pickle from mines'):
                 mine = self.mines[rowid] = pickle.loads(pickle_data)
                 mine.index(self, conn, rowid, force=False)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     @classmethod
     def get_opened_cache(cls, unique_id):
