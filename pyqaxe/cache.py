@@ -64,7 +64,8 @@ class Cache:
         query_string = '?mode=ro' if read_only else ''
         location = 'file:{}{}'.format(urllib.parse.quote(location, safe=':/'), query_string)
         self.connection_ = sqlite3.connect(
-            location, detect_types=sqlite3.PARSE_DECLTYPES, uri=True)
+            location, uri=True,
+            detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
         self.opened_file_cache_ = LRU_Cache(self.open_file_, self.close_file_, 32)
 
         with self.connection_ as conn:

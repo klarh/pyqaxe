@@ -64,16 +64,20 @@ class GTAR:
     - cache_id: `Cache` unique identifier for the archive containing this record
     - data: exposes the data of the record. Value is a string, bytes, or array-like object depending on the stored format.
 
-    The **gtar_frames** table's columns depend on which records are
+    The **gtar_frames** view's columns depend on which records are
     found among the indexed files. For each unique index, it lists all
     quantities found among all archives as columns (note that some
-    quantities may need to be selected with quotes, for example
-    `select "params.json" from gtar_frames`. It contains the following
-    additional columns:
+    quantity names may need to be surrounded by quotes). Because it is
+    a view without proper column types for the data, they must be set
+    manually (see the examples below). gtar_frames contains the
+    following additional columns:
 
     - gtar_index: *index* for the record
     - file_id: files table identifier for the archive containing this record
     - cache_id: `Cache` unique identifier for the archive containing this record
+
+    :
+        cache.query('SELECT box[GTAR_DATA], position[GTAR_DATA] FROM gtar_frames')
 
     GTAR objects register a **gtar_frame** collation that can be used
     to sort indices in the standard GTAR way, rather than sqlite's
@@ -150,7 +154,7 @@ class GTAR:
         conn.execute('DROP VIEW IF EXISTS gtar_frames')
 
         all_names = {row[0] for row in conn.execute(
-            'SELECT DISTINCT name FROM gtar_records')}
+            'SELECT DISTINCT name FROM gtar_records WHERE gtar_index != ""')}
         column_queries = ['{name} as {name}'.format(name=name) for name in
                           ['cache_id', 'file_id', 'gtar_group', 'gtar_index']]
         column_queries.extend([
@@ -185,7 +189,7 @@ class GTAR:
 
     @classmethod
     def get_cache_size(cls):
-        """Return the maximumnumber of files to keep open."""
+        """Return the maximum number of files to keep open."""
         return cls.opened_trajectories_.max_size
 
     @classmethod

@@ -102,5 +102,17 @@ class GTARTests(unittest.TestCase):
 
         self.assertEqual(decoded_test_json['b'], 4)
 
+    def test_gtar_frames(self):
+        with tempfile.NamedTemporaryFile(suffix='.sqlite') as f:
+            cache = pyq.Cache(f.name)
+            cache.index(pyq.mines.Directory(self.temp_dir.name))
+            cache.index(GTAR())
+
+            positions = None
+            for (positions,) in cache.query('select position[GTAR_DATA] from gtar_frames'):
+                pass
+            # positions should be a numpy array, not None
+            positions[0]
+
 if __name__ == '__main__':
     unittest.main()
