@@ -109,10 +109,10 @@ class GTARTests(unittest.TestCase):
             cache.index(GTAR())
 
             positions = None
-            for (positions,) in cache.query('select position[GTAR_DATA] from gtar_frames'):
+            for (positions,) in cache.query('select position from gtar_frames'):
                 pass
-            # positions should be a numpy array, not None
-            positions[0]
+            # positions should be a numpy array, not None or a bytestring
+            positions[0][0]
 
 if __name__ == '__main__':
     unittest.main()

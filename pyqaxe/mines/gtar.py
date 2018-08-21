@@ -1,6 +1,7 @@
 import gtar
 import json
 import logging
+import re
 import sqlite3
 from .. import Cache, util
 
@@ -49,10 +50,12 @@ class GTAR:
     which records are available in each file, but the actual data
     contents are read on-demand.
 
+    :param exclude_frames_regexes: Iterable of regex patterns of quantity names that should be excluded as columns from `gtar_frames` table (see below)
+
     GTAR objects create the following table in the database:
 
     - gtar_records: Contains links to data found in all getar-format files
-    - gtar_frames: Contains sets of data stored with identical indices for each index of all getar-format files
+    - gtar_frames: Contains sets of data stored by index for all getar-format files
 
     The **gtar_records** table has the following columns:
 
@@ -61,23 +64,19 @@ class GTAR:
     - gtar_index: *index* for the record
     - name: *name* for the record
     - file_id: files table identifier for the archive containing this record
-    - cache_id: `Cache` unique identifier for the archive containing this record
     - data: exposes the data of the record. Value is a string, bytes, or array-like object depending on the stored format.
 
-    The **gtar_frames** view's columns depend on which records are
+    The **gtar_frames** table's columns depend on which records are
     found among the indexed files. For each unique index, it lists all
     quantities found among all archives as columns (note that some
-    quantity names may need to be surrounded by quotes). Because it is
-    a view without proper column types for the data, they must be set
-    manually (see the examples below). gtar_frames contains the
-    following additional columns:
+    quantity names may need to be surrounded by quotes) up to that
+    index. gtar_frames contains the following additional columns:
 
     - gtar_index: *index* for the record
     - file_id: files table identifier for the archive containing this record
-    - cache_id: `Cache` unique identifier for the archive containing this record
 
     :
-        cache.query('SELECT box[GTAR_DATA], position[GTAR_DATA] FROM gtar_frames')
+        cache.query('SELECT box, position FROM gtar_frames')
 
     GTAR objects register a **gtar_frame** collation that can be used
     to sort indices in the standard GTAR way, rather than sqlite's
@@ -92,9 +91,12 @@ class GTAR:
 
     """
     opened_trajectories_ = util.LRU_Cache(open_gtar, close_gtar, 16)
+    GTAR_FRAMES_COLUMN_WARNING = 128
+    GTAR_FRAMES_COLUMN_SKIP = 512
 
-    def __init__(self):
-        pass
+    def __init__(self, exclude_frames_regexes=(r'\.',)):
+        self.exclude_frames_regexes = set(exclude_frames_regexes)
+        self.compiled_frames_regexes_ = [re.compile(pat) for pat in self.exclude_frames_regexes]
 
     def index(self, cache, conn, mine_id=None, force=False):
         self.check_adapters()
@@ -103,9 +105,9 @@ class GTAR:
 
         conn.execute('CREATE TABLE IF NOT EXISTS gtar_records '
                      '(path TEXT, gtar_group TEXT, gtar_index TEXT, name TEXT, '
-                     'file_id INTEGER, cache_id TEXT, data GTAR_DATA, '
+                     'file_id INTEGER, data GTAR_DATA, '
                      'CONSTRAINT unique_gtar_path '
-                     'UNIQUE (path, file_id, cache_id) ON CONFLICT IGNORE)')
+                     'UNIQUE (path, file_id) ON CONFLICT IGNORE)')
 
         # don't do file IO if we aren't forced
         if not force or cache.read_only:
@@ -143,31 +145,62 @@ class GTAR:
 
                     encoded_data = encode_gtar_data(
                         path, file_id, cache.unique_id)
-                    values = (path, group, frame, name, file_id,
-                              cache.unique_id, encoded_data)
+                    values = (path, group, frame, name, file_id, encoded_data)
                     all_values.append(values)
 
         for values in all_values:
             conn.execute(
-                'INSERT INTO gtar_records VALUES (?, ?, ?, ?, ?, ?, ?)', values)
+                'INSERT INTO gtar_records VALUES (?, ?, ?, ?, ?, ?)', values)
 
-        conn.execute('DROP VIEW IF EXISTS gtar_frames')
+        conn.execute('DROP TABLE IF EXISTS gtar_frames')
 
-        all_names = {row[0] for row in conn.execute(
-            'SELECT DISTINCT name FROM gtar_records WHERE gtar_index != ""')}
-        column_queries = ['{name} as {name}'.format(name=name) for name in
-                          ['cache_id', 'file_id', 'gtar_group', 'gtar_index']]
-        column_queries.extend([
-            'max(case when name = "{name}" then data end) as "{name}"'.format(name=name)
-            for name in sorted(all_names)
+        all_names = list(sorted(row[0] for row in conn.execute(
+            'SELECT DISTINCT name FROM gtar_records') if
+            all(pat.search(row[0]) is None for pat in self.compiled_frames_regexes_)))
+        column_defs = ['file_id INTEGER', 'gtar_group TEXT', 'gtar_index TEXT']
+        column_defs.extend([
+            '"{name}" GTAR_DATA'.format(name=name) for name in all_names
         ])
 
-        query = ('CREATE VIEW gtar_frames AS SELECT {} FROM gtar_records '
-                 'GROUP BY cache_id, file_id, gtar_group, gtar_index '
-                 'ORDER BY cache_id, file_id, gtar_group, '
-                 'gtar_index COLLATE gtar_frame').format(
-                     ', '.join(column_queries))
+        if len(all_names) > self.GTAR_FRAMES_COLUMN_SKIP:
+            logger.warning('Attempting to create {} columns in gtar_frames, '
+                           'skipping instead'.format(len(all_names)))
+            return
+        elif len(all_names) > self.GTAR_FRAMES_COLUMN_WARNING:
+            logger.warning('Creating {} columns in gtar_frames'.format(len(all_names)))
+
+        query = ('CREATE TABLE gtar_frames ({})').format(
+            ', '.join(column_defs))
         conn.execute(query)
+
+        name_column_indices = {name: i for (i, name) in enumerate(all_names)}
+        all_values = []
+        last_fileid_group_index = (None, None, None)
+        current_row = [None]*len(all_names)
+        for (fileid, group, index, name, data) in cache.query(
+                # pass data through a function to make the record stay
+                # as a bytestring rather than being automatically read
+                'SELECT file_id, gtar_group, gtar_index, name, likely(data) FROM '
+                'gtar_records ORDER BY file_id, gtar_group, gtar_index COLLATE gtar_frame'):
+
+            fileid_group_index = (fileid, group, index)
+            if (fileid_group_index != last_fileid_group_index and
+                last_fileid_group_index != (None, None, None)):
+
+                all_values.append((last_fileid_group_index, current_row))
+                if fileid_group_index[:2] != last_fileid_group_index[:2]:
+                    current_row = [None]*len(all_names)
+
+            last_fileid_group_index = fileid_group_index
+            if name in name_column_indices:
+                current_row[name_column_indices[name]] = data
+        if any(val is not None for val in current_row):
+            all_values.append((last_fileid_group_index, current_row))
+
+        query = 'INSERT INTO gtar_frames VALUES ({})'.format(
+            ', '.join((len(last_fileid_group_index) + len(all_names))*'?'))
+        for (ids, rest_of_row) in all_values:
+            conn.execute(query, list(ids) + list(rest_of_row))
 
     @classmethod
     def check_adapters(cls):
@@ -182,7 +215,7 @@ class GTAR:
         cls.has_registered_adapters = True
 
     def __getstate__(self):
-        return []
+        return [list(sorted(self.exclude_frames_regexes))]
 
     def __setstate__(self, state):
         self.__init__(*state)
