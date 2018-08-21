@@ -79,7 +79,8 @@ class Directory:
         while directory_stack:
             for entry in scandir(directory_stack.pop()):
                 if entry.is_dir():
-                    directory_stack.append(entry.path)
+                    if all(regex.search(entry.path) is None for regex in self.compiled_regexes_):
+                        directory_stack.append(entry.path)
                 else:
                     valid = all([
                         entry.name.split('.')[-1] not in self.exclude_suffixes,
