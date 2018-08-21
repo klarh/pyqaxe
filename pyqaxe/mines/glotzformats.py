@@ -123,6 +123,11 @@ class GlotzFormats:
             except glotzformats.errors.ParserError as e:
                 logger.warning('{}: {}'.format(row[0], e))
                 continue
+            except RuntimeError as e:
+                # gtar library throws RuntimeErrors when archives are
+                # corrupted, for example; skip this one with a warning
+                logger.warning('{}: {}'.format(row[0], e))
+                continue
 
             for frame in range(len(trajectory)):
                 values = [file_id, frame]
