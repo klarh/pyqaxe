@@ -35,7 +35,8 @@ setup(name='pyqaxe',
       license='BSD',
       long_description=long_description,
       packages=[
-          'pyqaxe'
+          'pyqaxe',
+          'pyqaxe.mines'
       ],
       project_urls={
           'Documentation': 'http://pyqaxe.readthedocs.io/',
