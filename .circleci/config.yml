@@ -1,10 +1,6 @@
 version: 2
 
 references:
-  container_py34: &test_container_config_py34
-    docker:
-      - image: circleci/python:3.4.9
-
   container_py36: &test_container_config_py36
     docker:
       - image: circleci/python:3.6.6
@@ -36,12 +32,6 @@ references:
     working_directory: ~/repo
 
 jobs:
-  test-py34:
-    <<: *test_container_config_py34
-    environment:
-      PYVER: "3.4"
-    <<: *build_and_test
-
   test-py36:
     <<: *test_container_config_py36
     environment:
@@ -58,6 +48,5 @@ workflows:
   version: 2
   all:
     jobs:
-      - test-py34
       - test-py36
       - test-py37
