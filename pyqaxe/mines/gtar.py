@@ -185,9 +185,9 @@ class GTAR:
 
             fileid_group_index = (fileid, group, index)
             if (fileid_group_index != last_fileid_group_index and
-                last_fileid_group_index != (None, None, None)):
+                any(val is not None for val in current_row)):
 
-                all_values.append((last_fileid_group_index, current_row))
+                all_values.append((last_fileid_group_index, list(current_row)))
                 if fileid_group_index[:2] != last_fileid_group_index[:2]:
                     current_row = [None]*len(all_names)
 

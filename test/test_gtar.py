@@ -20,11 +20,15 @@ class GTARTests(unittest.TestCase):
 
         positions = [[1, 2, 3],
                      [-1, 2, 3]]
+        orientations = [[1, 0, 0, 0],
+                        [0, 1, 0, 0]]
 
         test_json = json.dumps(dict(a=1.3, b=4))
 
         with gtar.GTAR(os.path.join(cls.temp_dir.name, 'test.zip'), 'w') as traj:
+            traj.writePath('position.f32.ind', positions)
             traj.writePath('frames/10/position.f32.ind', positions)
+            traj.writePath('frames/10/orientation.f32.ind', orientations)
             traj.writeStr('test.json', test_json)
 
         cls.nested_tar_name = os.path.join(cls.temp_dir.name, 'nested.tar')
@@ -113,6 +117,18 @@ class GTARTests(unittest.TestCase):
                 pass
             # positions should be a numpy array, not None or a bytestring
             positions[0][0]
+
+            frame_count = None
+
+            for (frame_count,) in cache.query('select count(*) from gtar_frames '
+                                              'where position notnull'):
+                pass
+            self.assertEqual(frame_count, 2)
+
+            for (frame_count,) in cache.query('select count(*) from gtar_frames '
+                                              'where orientation notnull'):
+                pass
+            self.assertEqual(frame_count, 1)
 
 if __name__ == '__main__':
     unittest.main()
