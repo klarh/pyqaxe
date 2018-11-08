@@ -77,8 +77,20 @@ class Directory:
 
         directory_stack = [self.root]
         while directory_stack:
-            for entry in scandir(directory_stack.pop()):
-                if entry.is_dir():
+            try:
+                entries = scandir(directory_stack.pop())
+            except PermissionError:
+                # can't read directory
+                continue
+
+            for entry in entries:
+                try:
+                    is_directory = entry.is_dir()
+                except OSError:
+                    # symlink to itself
+                    continue
+
+                if is_directory:
                     if all(regex.search(entry.path) is None for regex in self.compiled_regexes_):
                         directory_stack.append(entry.path)
                 else:
@@ -91,7 +103,11 @@ class Directory:
                         if self.relative_to:
                             path = os.path.relpath(path, self.relative_to)
 
-                        stat = entry.stat()
+                        try:
+                            stat = entry.stat()
+                        except FileNotFoundError:
+                            # link to file that doesn't exist, for example
+                            continue
                         mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
                         cache.insert_file(conn, mine_id, path, mtime, None)
 

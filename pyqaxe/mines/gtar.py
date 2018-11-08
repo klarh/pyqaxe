@@ -135,6 +135,9 @@ class GTAR:
                 # corrupted, for example; skip this one with a warning
                 logger.warning('{}: {}'.format(row[0], e))
                 continue
+            except PermissionError as e:
+                logger.warning('{}: {}'.format(row[0], e))
+                continue
 
             for record in traj.getRecordTypes():
                 group = record.getGroup()
