@@ -118,9 +118,6 @@ class GTAR:
                 (mine_id,)):
             pass
 
-        # all rows to insert into glotzformats_frames (TODO interleave
-        # reading and writing if size of all_values becomes an issue)
-        all_values = []
         for row in conn.execute(
                 'SELECT rowid, * from files WHERE (update_time > ?) AND '
                 '(path LIKE "%.zip" OR path LIKE "%.tar" OR path LIKE "%.sqlite")',
@@ -149,11 +146,8 @@ class GTAR:
                     encoded_data = encode_gtar_data(
                         path, file_id, cache.unique_id)
                     values = (path, group, frame, name, file_id, encoded_data)
-                    all_values.append(values)
-
-        for values in all_values:
-            conn.execute(
-                'INSERT INTO gtar_records VALUES (?, ?, ?, ?, ?, ?)', values)
+                    conn.execute(
+                        'INSERT INTO gtar_records VALUES (?, ?, ?, ?, ?, ?)', values)
 
         conn.execute('DROP TABLE IF EXISTS gtar_frames')
 
@@ -177,9 +171,10 @@ class GTAR:
         conn.execute(query)
 
         name_column_indices = {name: i for (i, name) in enumerate(all_names)}
-        all_values = []
         last_fileid_group_index = (None, None, None)
         current_row = [None]*len(all_names)
+        insert_query = 'INSERT INTO gtar_frames VALUES ({})'.format(
+            ', '.join((len(last_fileid_group_index) + len(all_names))*'?'))
         for (fileid, group, index, name, data) in cache.query(
                 # pass data through a function to make the record stay
                 # as a bytestring rather than being automatically read
@@ -190,7 +185,7 @@ class GTAR:
             if (fileid_group_index != last_fileid_group_index and
                 any(val is not None for val in current_row)):
 
-                all_values.append((last_fileid_group_index, list(current_row)))
+                conn.execute(insert_query, list(last_fileid_group_index) + list(current_row))
                 if fileid_group_index[:2] != last_fileid_group_index[:2]:
                     current_row = [None]*len(all_names)
 
@@ -198,12 +193,7 @@ class GTAR:
             if name in name_column_indices:
                 current_row[name_column_indices[name]] = data
         if any(val is not None for val in current_row):
-            all_values.append((last_fileid_group_index, current_row))
-
-        query = 'INSERT INTO gtar_frames VALUES ({})'.format(
-            ', '.join((len(last_fileid_group_index) + len(all_names))*'?'))
-        for (ids, rest_of_row) in all_values:
-            conn.execute(query, list(ids) + list(rest_of_row))
+            conn.execute(insert_query, list(last_fileid_group_index) + list(current_row))
 
     @classmethod
     def check_adapters(cls):

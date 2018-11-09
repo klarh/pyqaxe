@@ -98,9 +98,8 @@ class GlotzFormats:
                 (mine_id,)):
             pass
 
-        # all rows to insert into glotzformats_frames (TODO interleave
-        # reading and writing if size of all_values becomes an issue)
-        all_values = []
+        insert_query = 'INSERT INTO glotzformats_frames VALUES ({})'.format(
+            ', '.join((len(self.known_frame_attributes) + 2)*'?'))
         for row in conn.execute(
                 'SELECT rowid, * from files WHERE (update_time > ?) AND '
                 '(path LIKE "%.zip" OR '
@@ -133,12 +132,7 @@ class GlotzFormats:
                 values = [file_id, frame]
                 for attr in self.known_frame_attributes:
                     values.append(encode_glotzformats_data(file_id, cache.unique_id, frame, attr))
-                all_values.append(values)
-
-        query = 'INSERT INTO glotzformats_frames VALUES ({})'.format(
-            ', '.join((len(self.known_frame_attributes) + 2)*'?'))
-        for values in all_values:
-            conn.execute(query, values)
+                conn.execute(insert_query, values)
 
     @classmethod
     def check_adapters(cls):
