@@ -109,6 +109,10 @@ class GTAR:
                      'CONSTRAINT unique_gtar_path '
                      'UNIQUE (path, file_id) ON CONFLICT IGNORE)')
 
+        conn.execute('CREATE INDEX IF NOT EXISTS gtar_record_fileids '
+                     'ON gtar_records (file_id, gtar_group, '
+                     'gtar_index COLLATE gtar_frame)')
+
         # don't do file IO if we aren't forced
         if not force or cache.read_only:
             return
