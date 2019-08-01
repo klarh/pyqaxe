@@ -59,9 +59,11 @@ class GTARTests(unittest.TestCase):
 
         self.assertIn('test.json', found_paths)
 
-        for (path, data) in cache.query('select path, data from gtar_records'):
+        for (path, data, resolution) in cache.query(
+                'select path, data, gtar_resolution from gtar_records'):
             if path == 'test.json':
                 decoded_test_json = json.loads(data)
+                self.assertEqual(resolution, gtar.Resolution.Text)
 
         self.assertEqual(decoded_test_json['b'], 4)
 

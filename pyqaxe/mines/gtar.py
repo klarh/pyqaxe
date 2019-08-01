@@ -62,6 +62,9 @@ class GTAR:
     - path: path within the archive of the record
     - gtar_group: *group* for the record
     - gtar_index: *index* for the record
+    - gtar_behavior: *behavior* for the record
+    - gtar_format: *format* for the record
+    - gtar_resolution: *resolution* for the record
     - name: *name* for the record
     - file_id: files table identifier for the archive containing this record
     - data: exposes the data of the record. Value is a string, bytes, or array-like object depending on the stored format.
@@ -72,7 +75,7 @@ class GTAR:
     quantity names may need to be surrounded by quotes) up to that
     index. gtar_frames contains the following additional columns:
 
-    - gtar_index: *index* for the record
+    - gtar_index: *index* for the records
     - file_id: files table identifier for the archive containing this record
 
     :
@@ -104,7 +107,9 @@ class GTAR:
         conn.create_collation('gtar_frame', collate_gtar_index)
 
         conn.execute('CREATE TABLE IF NOT EXISTS gtar_records '
-                     '(path TEXT, gtar_group TEXT, gtar_index TEXT, name TEXT, '
+                     '(path TEXT, gtar_group TEXT, gtar_index TEXT, '
+                     'gtar_behavor INTEGER, gtar_format INTEGER, '
+                     'gtar_resolution INTEGER, name TEXT, '
                      'file_id INTEGER, data GTAR_DATA, '
                      'CONSTRAINT unique_gtar_path '
                      'UNIQUE (path, file_id) ON CONFLICT IGNORE)')
@@ -142,6 +147,9 @@ class GTAR:
 
             for record in traj.getRecordTypes():
                 group = record.getGroup()
+                behavior = record.getBehavior()
+                format_ = record.getFormat()
+                resolution = record.getResolution()
                 name = record.getName()
                 for frame in traj.queryFrames(record):
                     record.setIndex(frame)
@@ -149,9 +157,11 @@ class GTAR:
 
                     encoded_data = encode_gtar_data(
                         path, file_id, cache.unique_id)
-                    values = (path, group, frame, name, file_id, encoded_data)
+                    values = (path, group, frame, behavior, format_,
+                              resolution, name, file_id, encoded_data)
                     conn.execute(
-                        'INSERT INTO gtar_records VALUES (?, ?, ?, ?, ?, ?)', values)
+                        'INSERT INTO gtar_records VALUES '
+                        '(?, ?, ?, ?, ?, ?, ?, ?, ?)', values)
 
         conn.execute('DROP TABLE IF EXISTS gtar_frames')
 
